@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="128" fill="#F6F3EB" stroke="#1A1B1F" stroke-width="24" />
+  <!-- Sun -->
+  <circle cx="340" cy="180" r="48" fill="#85AEE0" stroke="#1A1B1F" stroke-width="20" />
+  <!-- Mountain 1 -->
+  <path d="M80 390 L230 160 L380 390 Z" fill="#85AEE0" stroke="#1A1B1F" stroke-width="20" stroke-linejoin="round" />
+  <!-- Mountain 2 -->
+  <path d="M260 390 L350 250 L440 390 Z" fill="#FFFFFF" stroke="#1A1B1F" stroke-width="20" stroke-linejoin="round" />
+  <!-- Baseline rule -->
+  <line x1="60" y1="390" x2="452" y2="390" stroke="#1A1B1F" stroke-width="20" stroke-linecap="round" />
+</svg>
