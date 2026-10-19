@@ -20,44 +20,108 @@ export function parseChatText(rawText = '') {
     return { isCommand: true, command: 'recent_history' };
   }
 
-  // 2. Extract Amount (e.g., 30k, 30.000, 30rb, 10jt, 10.000.000, 50000)
+  // 2. Strict Financial Intent Check
+  // A message MUST have a financial currency indicator (rp, idr, k, rb, jt) OR an explicit financial action verb!
+  const hasCurrencyIndicator = /(?:rp\.?|idr|\$)\s*\d+|\d+\s*(?:k|rb|ribu|jt|juta)\b/i.test(lower);
+  const hasFinancialKeyword = /\b(beli|jajan|bayar|ongkos|habis|belanja|makan|ngopi|bensin|gaji|transfer|topup|top up|isi saldo|pemasukan|pengeluaran|tf|checkout|pesan|order|struk|qris|biaya|tagihan|sewa|indomaret|alfamart|supermarket|warung|resto|cafe|kopi|pulsa|listrik|token|dana|gopay|ovo|shopeepay|cash|tunai)\b/i.test(lower);
+
+  // If a message has NEITHER a currency unit NOR a financial keyword, reject immediately!
+  if (!hasCurrencyIndicator && !hasFinancialKeyword) {
+    return {
+      isValidTransaction: false,
+      rawText: text,
+      message: 'Bukan pesan transaksi keuangan.'
+    };
+  }
+
+  // 3. Pre-clean Non-Financial Numbers (Times, Dates, Phone Numbers, Measurements)
+  let cleanText = lower;
+
+  // Remove clock times (e.g. "jam 10.30", "jam 10:30", "pukul 10.30", "10.30 wib", "jam 10")
+  cleanText = cleanText.replace(/(?:jam|pukul)\s*[0-2]?[0-9](?:[.:][0-5][0-9])?/gi, ' ');
+  cleanText = cleanText.replace(/\b[0-2]?[0-9][.:][0-5][0-9]\s*(?:wib|wita|wit|am|pm)?\b/gi, ' ');
+
+  // Remove dates (e.g. "tgl 10", "tanggal 19", "19/10/2026", "19-10-2026")
+  cleanText = cleanText.replace(/(?:tgl|tanggal)\s*[0-3]?[0-9](?:\s*(?:jan|feb|mar|apr|mei|jun|jul|agu|sep|okt|nov|des|\w+))?/gi, ' ');
+  cleanText = cleanText.replace(/\b[0-3]?[0-9][\/-][0-1]?[0-9][\/-](?:20)?[0-9]{2}\b/g, ' ');
+
+  // Remove phone numbers
+  cleanText = cleanText.replace(/\+?[0-9]{9,15}\b/g, ' ');
+
+  // Remove counting and measurement units (e.g. "10 menit", "5 orang", "no 10")
+  cleanText = cleanText.replace(/\b\d+\s*(?:menit|detik|jam|hari|minggu|bulan|tahun|orang|pcs|buah|lembar|porsi|kali|kg|gram|meter|cm|km)\b/gi, ' ');
+  cleanText = cleanText.replace(/\b(?:nomor|no|bab|pasal|hal|halaman|ruang|lantai|kamar|kelas)\s*\d+\b/gi, ' ');
+
+  // 4. Extract Monetary Amount from Cleaned Text
   let detectedAmount = 0;
-  // Match patterns like: 30k, 30.000, 30,000, 30rb, 30 ribu, 10jt, 1.5jt, Rp 30000
-  const amountRegex = /(?:rp\.?|idr|\$)?\s*(\d{1,3}(?:[.,]\d{3})*|\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)?\b/i;
-  const match = lower.match(amountRegex);
 
-  if (match) {
-    let numStr = match[1].replace(/\./g, '').replace(/,/g, '.');
+  // Pattern A: Number with Indonesian slang unit (e.g., 30k, 30rb, 30 ribu, 10jt, 1.5jt)
+  const unitMatch = cleanText.match(/\b(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)\b/i);
+  if (unitMatch) {
+    let numStr = unitMatch[1].replace(/,/g, '.');
     let val = parseFloat(numStr);
-
-    const unit = (match[2] || '').toLowerCase();
+    const unit = unitMatch[2].toLowerCase();
     if (unit === 'jt' || unit === 'juta') {
       val = Math.round(val * 1000000);
-    } else if (unit === 'rb' || unit === 'ribu' || unit === 'k') {
-      if (val < 1000) {
-        val = Math.round(val * 1000);
-      }
+    } else if (unit === 'k' || unit === 'rb' || unit === 'ribu') {
+      val = Math.round(val * 1000);
     }
-
     if (!isNaN(val) && val > 0) {
-      detectedAmount = Math.round(val);
+      detectedAmount = val;
     }
   }
 
-  // If no amount detected, cannot be a valid transaction
+  // Pattern B: Number with currency prefix (e.g., Rp 50.000, Rp50000, IDR 30.000)
+  if (detectedAmount === 0) {
+    const rpMatch = cleanText.match(/(?:rp\.?|idr|\$)\s*(\d{1,3}(?:[.,]\d{3})*|\d+)/i);
+    if (rpMatch) {
+      let numStr = rpMatch[1].replace(/[.,]/g, '');
+      let val = parseInt(numStr, 10);
+      if (!isNaN(val) && val > 0) {
+        detectedAmount = val;
+      }
+    }
+  }
+
+  // Pattern C: Full thousands formatted number (e.g., 30.000, 150.000, 1.500.000)
+  // Must have 3 digits after the dot to prevent matching 10.30 (time)
+  if (detectedAmount === 0) {
+    const formattedMatch = cleanText.match(/\b(\d{1,3}(?:\.\d{3})+)\b/);
+    if (formattedMatch) {
+      let numStr = formattedMatch[1].replace(/\./g, '');
+      let val = parseInt(numStr, 10);
+      if (!isNaN(val) && val >= 1000) {
+        detectedAmount = val;
+      }
+    }
+  }
+
+  // Pattern D: Bare large integer (e.g. 50000, 25000) ONLY IF explicit financial keyword is present
+  if (detectedAmount === 0 && hasFinancialKeyword) {
+    const bareMatch = cleanText.match(/\b(\d{4,8})\b/);
+    if (bareMatch) {
+      let val = parseInt(bareMatch[1], 10);
+      if (!isNaN(val) && val >= 1000) {
+        detectedAmount = val;
+      }
+    }
+  }
+
+  // If no amount detected or unrealistically small
   if (detectedAmount <= 0) {
     return {
       isValidTransaction: false,
       rawText: text,
-      message: 'Nominal tidak terdeteksi. Contoh: "Jajan di Indomaret 30k" atau "Kopi 25rb QRIS"'
+      message: 'Nominal tidak terdeteksi atau bukan transaksi.'
     };
   }
 
-  // 3. Detect Type (Income vs Expense)
+  // 5. Detect Type (Income vs Expense)
   let detectedType = 'expense';
   if (/gaji|salary|terima|masuk|income|freelance|bonus|transfer masuk|inflow|penjualan|dapat uang|cair/i.test(lower)) {
     detectedType = 'income';
   }
+
 
   // 4. Detect Category & Merchant
   let detectedCategory = 'Miscellaneous';
