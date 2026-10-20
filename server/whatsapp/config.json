@@ -1,13 +1,16 @@
 {
   "mode": "self_only",
   "ownerPhone": "6281389352752",
+  "ownerLid": "149104101474415",
   "ownerName": "Farrel",
-  "lockedRoomJid": "6281389352752@s.whatsapp.net",
+  "lockedRoomJid": "149104101474415@lid",
   "allowedNumbers": [
-    "6281389352752"
+    "6281389352752",
+    "149104101474415"
   ],
   "allowedRooms": [
-    "6281389352752@s.whatsapp.net"
+    "6281389352752@s.whatsapp.net",
+    "149104101474415@lid"
   ],
-  "updatedAt": "2026-10-20T08:22:00.000Z"
+  "updatedAt": "2026-10-20T11:10:00.000Z"
 }
