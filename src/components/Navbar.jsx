@@ -116,7 +116,7 @@ export default function Navbar({
           title="Catat pengeluaran atau pemasukan baru"
         >
           <Plus size={16} strokeWidth={2.6} />
-          <span>+ Catat Transaksi</span>
+          <span>Catat Transaksi</span>
         </button>
 
         {/* Theme Switcher */}

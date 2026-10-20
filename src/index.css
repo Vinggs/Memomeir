@@ -1135,52 +1135,276 @@ body {
   color: #FFFFFF;
 }
 
+/* ==============================================================================
+   ANALYTICS: DONUT & BAR CHARTS (Interactive SVG + Floating Tooltips)
+   ============================================================================== */
+
+/* 1. DONUT CHART VIEW */
+.donut-chart-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 24px;
+  padding: 10px 4px 6px;
+  flex-wrap: wrap;
+}
+
+.donut-svg-container {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.donut-center-info {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  text-align: center;
+  padding: 16px;
+}
+
+.donut-center-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.donut-center-val {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 2px 0 4px;
+  letter-spacing: -0.02em;
+}
+
+.donut-center-tag {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  background: var(--accent-blue-subtle);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 102, 255, 0.2);
+}
+
+.donut-center-emoji {
+  font-size: 1.6rem;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.donut-center-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  max-width: 120px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.donut-center-badge {
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+/* Donut Legend List */
+.donut-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 200px;
+  max-height: 230px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.donut-legend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--bg-subtle);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.donut-legend-item:hover,
+.donut-legend-item.active {
+  background: var(--bg-card);
+  border-color: var(--border-medium);
+  transform: translateX(3px);
+  box-shadow: var(--shadow-card);
+}
+
+.donut-legend-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.donut-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.donut-legend-emoji {
+  font-size: 1rem;
+}
+
+.donut-legend-name {
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.donut-legend-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.donut-legend-amount {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.donut-legend-pct {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+/* 2. VISUAL BAR CHART VIEW WITH FLOATING TOOLTIPS */
 .chart-container-visual {
   height: 220px;
   display: flex;
   align-items: flex-end;
-  gap: 14px;
-  padding: 16px 8px 8px;
+  justify-content: center;
+  gap: 22px;
+  padding: 36px 16px 10px;
   border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
 }
 
 .chart-col {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   height: 100%;
   justify-content: flex-end;
   position: relative;
+  min-width: 52px;
+  max-width: 80px;
 }
 
 .chart-col-bar {
-  width: 100%;
-  max-width: 40px;
-  border-radius: 6px 6px 0 0;
+  width: 48px;
+  border-radius: 8px 8px 0 0;
   background: #0066FF;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
 .chart-col-bar:hover {
-  opacity: 0.9;
-  transform: scaleY(1.03);
+  transform: scaleY(1.04);
+  filter: brightness(1.1);
+}
+
+.chart-col-pct-tag {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Floating Tooltip positioned cleanly ABOVE the bar */
+.chart-col-bar-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: #111827;
+  color: #FFFFFF;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  white-space: nowrap;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  opacity: 0;
+  transition: all 0.2s ease;
+  z-index: 50;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+[data-theme='dark'] .chart-col-bar-tooltip {
+  background: #1F2937;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.chart-col-bar-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 5px;
+  border-style: solid;
+  border-color: #111827 transparent transparent transparent;
+}
+
+[data-theme='dark'] .chart-col-bar-tooltip::after {
+  border-color: #1F2937 transparent transparent transparent;
+}
+
+.chart-col:hover .chart-col-bar-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .chart-col-label {
-  margin-top: 8px;
-  font-size: 0.72rem;
+  margin-top: 10px;
+  font-size: 0.74rem;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 64px;
+  max-width: 78px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
-/* Category Progress Bars */
+/* Category Progress Bars (List View) */
 .category-bars-list {
   display: flex;
   flex-direction: column;
@@ -1191,7 +1415,7 @@ body {
 .category-bar-item {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .category-bar-info {
@@ -1236,30 +1460,80 @@ body {
   transition: width 0.4s ease;
 }
 
+/* 3. METODE PEMBAYARAN (With Visual Progress Tracks & Badges) */
 .flow-breakdown-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 4px;
 }
 
 .flow-breakdown-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 14px;
   border-radius: 14px;
   background: var(--bg-subtle);
+  border: 1px solid transparent;
+  transition: all 0.18s ease;
+}
+
+.flow-breakdown-item:hover {
+  background: var(--bg-card);
+  border-color: var(--border-medium);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+
+.flow-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flow-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.flow-method-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .flow-method-name {
   font-size: 0.84rem;
   font-weight: 700;
   color: var(--text-primary);
+  line-height: 1.2;
 }
 
 .flow-method-sub {
   font-size: 0.72rem;
   color: var(--text-muted);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+
+.flow-track {
+  width: 100%;
+  height: 5px;
+  border-radius: 9999px;
+  background: var(--border-subtle);
+  overflow: hidden;
+}
+
+.flow-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
 }
 
 /* Transactions Table */
@@ -1863,24 +2137,24 @@ body {
 .desktop-hero-banner {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 20px;
-  padding: 24px 28px;
-  margin-bottom: 22px;
+  border-radius: 18px;
+  padding: 16px 22px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 18px;
   box-shadow: var(--shadow-card);
 }
 
 .desktop-hero-content {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .desktop-hero-title {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.01em;
@@ -1896,6 +2170,7 @@ body {
   background: #ECFDF5;
   color: #059669;
   border: 1px solid #A7F3D0;
+  transition: all 0.15s ease;
 }
 
 [data-theme='dark'] .desktop-real-badge {
@@ -1905,16 +2180,16 @@ body {
 }
 
 .desktop-hero-desc {
-  font-size: 0.84rem;
+  font-size: 0.82rem;
   color: var(--text-secondary);
-  line-height: 1.5;
-  max-width: 580px;
+  line-height: 1.45;
+  max-width: 560px;
 }
 
 .desktop-hero-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
   flex-wrap: wrap;
 }
@@ -1923,10 +2198,11 @@ body {
 .desktop-guide-banner {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 20px;
-  padding: 20px 24px;
-  margin-bottom: 22px;
+  border-radius: 16px;
+  padding: 12px 18px;
+  margin-bottom: 16px;
   box-shadow: var(--shadow-card);
+  transition: all 0.2s ease;
 }
 
 .desktop-guide-header {

@@ -67,6 +67,8 @@ export default function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
   const [isDbStatusOpen, setIsDbStatusOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [waStatus, setWaStatus] = useState(null);
 
   // Toast notification
   const [toast, setToast] = useState(null);
@@ -141,11 +143,31 @@ export default function App() {
     }
   }, [filterType, searchQuery]);
 
+  // Fetch WhatsApp Bot Status (Connection & On/Off state)
+  const loadWaStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/whatsapp/status');
+      if (res.ok) {
+        const data = await res.json();
+        setWaStatus(data);
+      }
+    } catch {
+      // offline / quiet fallback
+    }
+  }, []);
+
   // Initial load
   useEffect(() => {
     loadStats();
     loadTransactions();
-  }, [loadStats, loadTransactions]);
+    loadWaStatus();
+
+    const interval = setInterval(() => {
+      loadWaStatus();
+      loadStats();
+    }, 8000);
+    return () => clearInterval(interval);
+  }, [loadStats, loadTransactions, loadWaStatus]);
 
   // Delete transaction
   const handleDeleteTransaction = async id => {
@@ -288,12 +310,34 @@ export default function App() {
                 {/* Desktop Overview Banner */}
                 <section className="desktop-hero-banner">
                   <div className="desktop-hero-content">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       <h1 className="desktop-hero-title">Memomeir • Pencatat Keuangan Otomatis</h1>
                       <span className="desktop-real-badge">
                         <ShieldCheck size={13} style={{ marginRight: 4 }} />
                         Mode Data Real
                       </span>
+                      {waStatus?.connected ? (
+                        <span
+                          className="desktop-real-badge"
+                          style={{
+                            backgroundColor: waStatus.config?.enabled !== false ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                            color: waStatus.config?.enabled !== false ? 'var(--income-color)' : 'var(--expense-color)',
+                            borderColor: waStatus.config?.enabled !== false ? 'var(--income-border)' : 'var(--expense-border)',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => setIsDocsModalOpen(true)}
+                          title="Klik untuk melihat status & panduan WhatsApp"
+                        >
+                          <span
+                            className="status-dot pulse"
+                            style={{
+                              backgroundColor: waStatus.config?.enabled !== false ? '#10B981' : '#EF4444',
+                              marginRight: 6
+                            }}
+                          />
+                          {waStatus.config?.enabled !== false ? 'Bot WA: 🟢 Aktif' : 'Bot WA: 🔴 Mode Tidur'}
+                        </span>
+                      ) : null}
                     </div>
                     <p className="desktop-hero-desc">
                       Pusat kendali keuangan harian Anda. Catat pengeluaran dan pemasukan dengan mudah melalui web ini, upload struk belanja, atau cukup kirim chat via bot WhatsApp.
@@ -307,7 +351,7 @@ export default function App() {
                       title="Catat transaksi manual"
                     >
                       <Plus size={16} strokeWidth={2.6} />
-                      <span>+ Catat Transaksi</span>
+                      <span>Catat Transaksi</span>
                     </button>
                     <button
                       className="btn btn-secondary cartoon-pill-btn"
@@ -337,52 +381,61 @@ export default function App() {
                   </div>
                 </section>
 
-                {/* 3-Step WhatsApp & Web Quick Guide Banner */}
+                {/* 3-Step WhatsApp & Web Quick Guide Banner (Collapsible) */}
                 <section className="desktop-guide-banner">
-                  <div className="desktop-guide-header">
+                  <div
+                    className="desktop-guide-header"
+                    onClick={() => setIsGuideOpen(prev => !prev)}
+                    style={{ cursor: 'pointer', margin: isGuideOpen ? '0 0 14px' : '0' }}
+                  >
                     <div className="desktop-guide-heading">
                       <Sparkles size={16} color="#0066FF" />
-                      <span>Cara Praktis Menggunakan Memomeir & WhatsApp:</span>
+                      <span>Cara Praktis Menggunakan Memomeir & WhatsApp</span>
+                      <span className="cartoon-pill-badge" style={{ fontSize: '0.66rem', padding: '2px 8px', marginLeft: 6 }}>
+                        {isGuideOpen ? 'Sembunyikan Panduan ▲' : 'Lihat Panduan 3 Langkah ▼'}
+                      </span>
                     </div>
                     <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                       Tersambung langsung ke database realtime
                     </div>
                   </div>
 
-                  <div className="desktop-guide-steps">
-                    {/* Step 1 */}
-                    <div className="desktop-step-item">
-                      <div className="desktop-step-badge step-1">1</div>
-                      <div className="desktop-step-text-wrap">
-                        <div className="desktop-step-title">Kirim Chat WA / Upload Struk</div>
-                        <div className="desktop-step-desc">
-                          Ketik chat santai seperti <em>"Kopi 25rb qris"</em> ke WhatsApp, atau upload file mutasi & foto struk di web.
+                  {isGuideOpen && (
+                    <div className="desktop-guide-steps" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+                      {/* Step 1 */}
+                      <div className="desktop-step-item">
+                        <div className="desktop-step-badge step-1">1</div>
+                        <div className="desktop-step-text-wrap">
+                          <div className="desktop-step-title">Kirim Chat WA / Upload Struk</div>
+                          <div className="desktop-step-desc">
+                            Ketik chat santai seperti <em>"Kopi 25rb qris"</em> ke WhatsApp, atau upload file mutasi & foto struk di web.
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Step 2 */}
-                    <div className="desktop-step-item">
-                      <div className="desktop-step-badge step-2">2</div>
-                      <div className="desktop-step-text-wrap">
-                        <div className="desktop-step-title">AI Mengenali Otomatis</div>
-                        <div className="desktop-step-desc">
-                          Sistem otomatis mengekstrak nominal uang, kategori (Makanan, Transport, dll), dan metode pembayaran.
+                      {/* Step 2 */}
+                      <div className="desktop-step-item">
+                        <div className="desktop-step-badge step-2">2</div>
+                        <div className="desktop-step-text-wrap">
+                          <div className="desktop-step-title">AI Mengenali Otomatis</div>
+                          <div className="desktop-step-desc">
+                            Sistem otomatis mengekstrak nominal uang, kategori (Makanan, Transport, dll), dan metode pembayaran.
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Step 3 */}
-                    <div className="desktop-step-item">
-                      <div className="desktop-step-badge step-3">3</div>
-                      <div className="desktop-step-text-wrap">
-                        <div className="desktop-step-title">Saldo & Laporan Real-Time</div>
-                        <div className="desktop-step-desc">
-                          Saldo bersih, pengeluaran bulanan, dan grafik analitik langsung diperbarui seketika di dashboard ini.
+                      {/* Step 3 */}
+                      <div className="desktop-step-item">
+                        <div className="desktop-step-badge step-3">3</div>
+                        <div className="desktop-step-text-wrap">
+                          <div className="desktop-step-title">Saldo & Laporan Real-Time</div>
+                          <div className="desktop-step-desc">
+                            Saldo bersih, pengeluaran bulanan, dan grafik analitik langsung diperbarui seketika di dashboard ini.
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </section>
 
                 {/* 1. Summary Cards (4-Column Grid on Desktop) */}
