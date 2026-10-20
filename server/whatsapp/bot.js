@@ -18,11 +18,36 @@ const __dirname = path.dirname(__filename);
 
 const AUTH_DIR = path.join(__dirname, 'auth_info');
 const QR_STATUS_FILE = path.join(__dirname, 'status.json');
+const CONFIG_FILE = path.join(__dirname, 'config.json');
 const API_BASE = process.env.API_BASE || 'http://localhost:4000';
 
 // Ensure auth directory exists
 if (!fs.existsSync(AUTH_DIR)) {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
+}
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('[Bot Config] Failed to read config:', err);
+  }
+  return {
+    mode: 'self_only', // 'self_only' | 'locked_room' | 'all'
+    ownerPhone: '6281389352752',
+    lockedRoomJid: '6281389352752@s.whatsapp.net',
+    ownerName: 'Farrel'
+  };
+}
+
+function saveConfig(cfg) {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...cfg, updatedAt: new Date().toISOString() }, null, 2));
+  } catch (err) {
+    console.error('[Bot Config] Failed to write config:', err);
+  }
 }
 
 function updateStatus(statusData) {
@@ -35,6 +60,7 @@ function updateStatus(statusData) {
     console.error('[Bot Status] Failed to write status file:', err);
   }
 }
+
 
 // Helper to format currency
 function formatRupiah(num) {
@@ -50,6 +76,19 @@ async function getFinancialStats() {
     }
   } catch (err) {
     console.error('[Bot API] Failed to fetch stats:', err.message);
+  }
+  return null;
+}
+
+// Fetch recent transactions from Memomeir API
+async function getRecentTransactions(limit = 5) {
+  try {
+    const res = await fetch(`${API_BASE}/api/transactions?limit=${limit}`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.error('[Bot API] Failed to fetch transactions:', err.message);
   }
   return null;
 }
@@ -160,8 +199,52 @@ export async function startWhatsAppBot() {
       if (!msg.message) continue;
 
       const remoteJid = msg.key.remoteJid;
-      // Skip status broadcast updates and group chats (only process private chats / message to self)
-      if (!remoteJid || remoteJid === 'status@broadcast' || remoteJid.endsWith('@g.us')) continue;
+      // Skip status broadcast updates, group chats, and WhatsApp channels/newsletters
+      if (
+        !remoteJid ||
+        remoteJid === 'status@broadcast' ||
+        remoteJid.endsWith('@g.us') ||
+        remoteJid.endsWith('@newsletter')
+      ) {
+        continue;
+      }
+
+      // ==============================================================
+      // SECURITY & PRIVACY VERIFICATION FILTER
+      // Verifikasi: Hanya merespon chat ke Farrel atau room obrolan yang terkunci!
+      // Chat pribadi lain dengan teman/keluarga otomatis diabaikan tanpa intervensi.
+      // ==============================================================
+      const config = loadConfig();
+      const userPhone = sock.user?.id ? sock.user.id.split(':')[0].replace(/[^0-9]/g, '') : '';
+      const remotePhone = remoteJid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
+      const ownerPhone = (config.ownerPhone || '').replace(/[^0-9]/g, '');
+
+      const isSelfAccount = Boolean(userPhone && remotePhone === userPhone);
+      const isOwnerPhone = Boolean(ownerPhone && remotePhone === ownerPhone);
+      const isLockedRoom = Boolean(config.lockedRoomJid && remoteJid.toLowerCase() === config.lockedRoomJid.toLowerCase());
+      const isAllowedNumber = Boolean(
+        config.allowedNumbers &&
+        config.allowedNumbers.map(n => n.replace(/[^0-9]/g, '')).includes(remotePhone)
+      );
+      const isAllowedRoom = Boolean(
+        config.allowedRooms &&
+        config.allowedRooms.map(r => r.toLowerCase()).includes(remoteJid.toLowerCase())
+      );
+
+      let isAuthorized = false;
+      if (config.mode === 'all') {
+        isAuthorized = true;
+      } else if (config.mode === 'locked_room') {
+        isAuthorized = isLockedRoom || (config.lockedRoomJid && remotePhone === config.lockedRoomJid.split('@')[0].replace(/[^0-9]/g, ''));
+      } else {
+        // Default: 'self_only' (hanya chat Farrel / diri sendiri / room obrolan yang diset)
+        isAuthorized = isSelfAccount || isOwnerPhone || isAllowedNumber || isLockedRoom || isAllowedRoom;
+      }
+
+      // Jika obrolan tidak terverifikasi (misal chat dengan teman), abaikan sepenuhnya!
+      if (!isAuthorized) {
+        continue;
+      }
 
       // Extract text content
       const textMessage =
@@ -176,6 +259,10 @@ export async function startWhatsAppBot() {
         textMessage.startsWith('🧾 *Struk') ||
         textMessage.startsWith('📊 *Ringkasan') ||
         textMessage.startsWith('🤖 *Panduan') ||
+        textMessage.startsWith('📋 *') ||
+        textMessage.startsWith('🔒 *') ||
+        textMessage.startsWith('🔓 *') ||
+        textMessage.startsWith('🛡️ *') ||
         textMessage.startsWith('⚠️') ||
         textMessage.startsWith('🔍 *Foto') ||
         textMessage.startsWith('❌ Gagal')
@@ -269,6 +356,83 @@ export async function startWhatsAppBot() {
 
       // A. Bot Commands
       if (parsed.isCommand) {
+        // 1. Lock room to current chat room
+        if (parsed.command === 'lock_room') {
+          config.mode = 'locked_room';
+          config.lockedRoomJid = remoteJid;
+          if (!config.allowedRooms) config.allowedRooms = [];
+          if (!config.allowedRooms.includes(remoteJid)) config.allowedRooms.push(remoteJid);
+          saveConfig(config);
+
+          const lockReply =
+            `🔒 *Ruang Obrolan Ini Berhasil Dikunci!*\n\n` +
+            `Mulai saat ini, bot Memomeir *HANYA* aktif dan memproses obrolan di chat room ini.\n` +
+            `Chat pribadi Anda dengan orang lain tidak akan diproses atau diganggu sama sekali.\n\n` +
+            `• *ID Room:* \`${remoteJid}\`\n` +
+            `• *Mode Proteksi:* Terkunci (Locked Room)\n\n` +
+            `💡 Ketik *#status* untuk cek status, atau *#self* untuk kembali ke mode nomor pribadi.`;
+
+          await sock.sendMessage(remoteJid, { text: lockReply }, { quoted: msg });
+          continue;
+        }
+
+        // 2. Mode Self (Khusus Farrel / Nomor Sendiri)
+        if (parsed.command === 'mode_self') {
+          config.mode = 'self_only';
+          saveConfig(config);
+
+          const selfReply =
+            `🔒 *Mode Bot: Khusus Farrel & Chat Nomor Sendiri*\n\n` +
+            `Bot sekarang hanya aktif di chat ke nomor Farrel (+${ownerPhone || userPhone}).\n` +
+            `Chat lain dengan teman/keluarga otomatis diabaikan secara aman.\n\n` +
+            `Ketik *#kunci* di ruang obrolan mana saja jika ingin mengunci bot ke ruang obrolan tersebut.`;
+
+          await sock.sendMessage(remoteJid, { text: selfReply }, { quoted: msg });
+          continue;
+        }
+
+        // 3. Mode All (Semua Chat Pribadi Diizinkan)
+        if (parsed.command === 'mode_all') {
+          config.mode = 'all';
+          saveConfig(config);
+
+          const allReply =
+            `🔓 *Mode Bot: Terbuka untuk Semua Chat Pribadi*\n\n` +
+            `Bot diizinkan merespon di semua ruang chat pribadi 1-on-1.\n` +
+            `Ketik *#kunci* di chat ini kapan saja untuk membatasi bot kembali.`;
+
+          await sock.sendMessage(remoteJid, { text: allReply }, { quoted: msg });
+          continue;
+        }
+
+        // 4. Status Proteksi & Keamanan Bot
+        if (parsed.command === 'bot_status') {
+          const modeLabel =
+            config.mode === 'locked_room'
+              ? '🔒 Terkunci Khusus Room Ini'
+              : config.mode === 'self_only'
+              ? '🔒 Khusus Farrel / Nomor Sendiri'
+              : '🔓 Terbuka untuk Semua Chat Pribadi';
+
+          const statusReply =
+            `🛡️ *Status Verifikasi & Keamanan Bot Memomeir*\n\n` +
+            `• *Mode Keamanan:* ${modeLabel}\n` +
+            `• *Pemilik Terdaftar:* ${config.ownerName || 'Farrel'}\n` +
+            `• *Nomor Pemilik:* +${ownerPhone || userPhone}\n` +
+            `• *Room Terkunci:* ${config.lockedRoomJid || '(Belum dikunci)'}\n` +
+            `• *Proteksi Chat Lain:* 🟢 Aktif (Chat selain Farrel diabaikan otomatis)\n\n` +
+            `*Perintah Pengaturan Cepat:* \n` +
+            `• *#kunci* : Kunci bot di ruang obrolan ini\n` +
+            `• *#self*  : Set khusus nomor Farrel / diri sendiri\n` +
+            `• *saldo*  : Cek ringkasan saldo keuangan\n` +
+            `• *mutasi* : Cek 5 transaksi terakhir\n` +
+            `• *help*   : Panduan lengkap penggunaan`;
+
+          await sock.sendMessage(remoteJid, { text: statusReply }, { quoted: msg });
+          continue;
+        }
+
+        // 5. Cek Saldo
         if (parsed.command === 'check_balance') {
           const stats = await getFinancialStats();
           if (stats && stats.summary) {
@@ -288,6 +452,37 @@ export async function startWhatsAppBot() {
           continue;
         }
 
+        // 6. Mutasi / Riwayat 5 Transaksi Terakhir
+        if (parsed.command === 'recent_history') {
+          const recentData = await getRecentTransactions(5);
+          if (recentData && Array.isArray(recentData.transactions)) {
+            const list = recentData.transactions;
+            if (list.length === 0) {
+              await sock.sendMessage(remoteJid, {
+                text: '📋 *Belum ada riwayat transaksi tercatat di Memomeir.*'
+              }, { quoted: msg });
+            } else {
+              let historyReply = `📋 *5 Transaksi Terakhir di Memomeir:*\n\n`;
+              list.forEach((t, i) => {
+                const icon = t.type === 'income' ? '💰' : '💸';
+                const formattedDate = new Date(t.date).toLocaleDateString('id-ID', {
+                  day: 'numeric',
+                  month: 'short'
+                });
+                historyReply += `${i + 1}. ${icon} *${formatRupiah(t.amount)}* - ${t.description || t.category} (${formattedDate})\n`;
+              });
+              historyReply += `\nKetik *saldo* untuk melihat total saldo.`;
+              await sock.sendMessage(remoteJid, { text: historyReply }, { quoted: msg });
+            }
+          } else {
+            await sock.sendMessage(remoteJid, {
+              text: '⚠️ Gagal mengambil riwayat dari server. Pastikan server web sedang aktif.'
+            }, { quoted: msg });
+          }
+          continue;
+        }
+
+        // 7. Bantuan & Panduan
         if (parsed.command === 'help') {
           const helpReply =
             `🤖 *Panduan Bot WhatsApp Memomeir*\n\n` +
@@ -301,6 +496,9 @@ export async function startWhatsAppBot() {
             `Tinggal foto struk belanja Indomaret/Alfamart/Resto dan kirim ke sini. AI akan membaca total belanja otomatis!\n\n` +
             `3️⃣ *Perintah Cepat:*\n` +
             `• Ketik *saldo* untuk melihat saldo saat ini.\n` +
+            `• Ketik *mutasi* untuk melihat 5 transaksi terakhir.\n` +
+            `• Ketik *#status* untuk cek proteksi & verifikasi obrolan.\n` +
+            `• Ketik *#kunci* untuk mengunci bot ke ruang obrolan ini.\n` +
             `• Ketik *help* untuk melihat bantuan ini.`;
 
           await sock.sendMessage(remoteJid, { text: helpReply }, { quoted: msg });

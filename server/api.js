@@ -251,22 +251,77 @@ router.post('/clear', async (req, res) => {
   }
 });
 
-// GET /api/whatsapp/status - Real-time status of Baileys WhatsApp bot
+// GET /api/whatsapp/status - Real-time status and security config of Baileys WhatsApp bot
 router.get('/whatsapp/status', async (req, res) => {
   try {
     const fs = await import('fs');
     const path = await import('path');
     const statusFile = path.join(process.cwd(), 'server', 'whatsapp', 'status.json');
-    if (fs.existsSync(statusFile)) {
-      const content = fs.readFileSync(statusFile, 'utf-8');
-      return res.json(JSON.parse(content));
-    }
-    res.json({
+    const configFile = path.join(process.cwd(), 'server', 'whatsapp', 'config.json');
+
+    let status = {
       state: 'offline',
       message: 'Bot WhatsApp belum dijalankan. Jalankan "npm run bot" untuk menyambungkan.'
-    });
+    };
+
+    if (fs.existsSync(statusFile)) {
+      status = JSON.parse(fs.readFileSync(statusFile, 'utf-8'));
+    }
+
+    if (fs.existsSync(configFile)) {
+      status.config = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
+    } else {
+      status.config = {
+        mode: 'self_only',
+        ownerName: 'Farrel',
+        ownerPhone: '6281389352752'
+      };
+    }
+
+    return res.json(status);
   } catch (err) {
     res.status(500).json({ state: 'error', error: err.message });
+  }
+});
+
+// GET /api/whatsapp/config - View WhatsApp security and room lock config
+router.get('/whatsapp/config', async (req, res) => {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const configFile = path.join(process.cwd(), 'server', 'whatsapp', 'config.json');
+    if (fs.existsSync(configFile)) {
+      return res.json(JSON.parse(fs.readFileSync(configFile, 'utf-8')));
+    }
+    return res.json({
+      mode: 'self_only',
+      ownerName: 'Farrel',
+      ownerPhone: '6281389352752'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/whatsapp/config - Update WhatsApp security and room lock config
+router.post('/whatsapp/config', async (req, res) => {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const configFile = path.join(process.cwd(), 'server', 'whatsapp', 'config.json');
+    let currentConfig = {};
+    if (fs.existsSync(configFile)) {
+      currentConfig = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
+    }
+    const newConfig = {
+      ...currentConfig,
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    fs.writeFileSync(configFile, JSON.stringify(newConfig, null, 2));
+    res.json({ success: true, config: newConfig });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

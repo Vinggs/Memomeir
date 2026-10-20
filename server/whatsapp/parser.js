@@ -20,6 +20,22 @@ export function parseChatText(rawText = '') {
     return { isCommand: true, command: 'recent_history' };
   }
 
+  if (/^(#?status|#?keamanan|#?infobot)$/i.test(lower)) {
+    return { isCommand: true, command: 'bot_status' };
+  }
+
+  if (/^(#?kunci|#?lock|#?lockhere|#?kuncidisini|#?verifikasi)$/i.test(lower)) {
+    return { isCommand: true, command: 'lock_room' };
+  }
+
+  if (/^(#?self|#?selfonly|#?sendiri|#?nomorsendiri)$/i.test(lower)) {
+    return { isCommand: true, command: 'mode_self' };
+  }
+
+  if (/^(#?semua|#?all|#?unlock)$/i.test(lower)) {
+    return { isCommand: true, command: 'mode_all' };
+  }
+
   // 2. Strict Financial Intent Check
   // A message MUST have a financial currency indicator (rp, idr, k, rb, jt) OR an explicit financial action verb!
   const hasCurrencyIndicator = /(?:rp\.?|idr|\$)\s*\d+|\d+\s*(?:k|rb|ribu|jt|juta)\b/i.test(lower);

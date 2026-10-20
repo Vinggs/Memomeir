@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, MessageSquare, Terminal, Sparkles, CheckCircle2, QrCode, RefreshCw, AlertCircle } from 'lucide-react';
+import { X, Copy, Check, MessageSquare, Terminal, Sparkles, CheckCircle2, QrCode, RefreshCw, AlertCircle, Shield } from 'lucide-react';
 
 export default function WebhookDocsModal({ isOpen, onClose }) {
   if (!isOpen) return null;
@@ -126,6 +126,24 @@ print("Hasil:", response.json())`;
               <RefreshCw size={13} className={refreshing ? 'pulse' : ''} />
               <span>Cek Status</span>
             </button>
+          </div>
+
+          {/* Security & Room Verification Mode Card */}
+          <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.22)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', flexShrink: 0 }}>
+              <Shield size={18} />
+            </div>
+            <div style={{ flex: 1, fontSize: '0.76rem' }}>
+              <div style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>Proteksi Obrolan & Verifikasi Kamar Chat</span>
+                <span style={{ fontSize: '0.68rem', padding: '1px 7px', borderRadius: 6, background: '#2563EB', color: '#FFFFFF', fontWeight: 600 }}>
+                  {botStatus.config?.mode === 'locked_room' ? '🔒 Room Terkunci' : '🛡️ Khusus Farrel'}
+                </span>
+              </div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+                Bot hanya merespon obrolan dari/ke Farrel (<strong>+{botStatus.config?.ownerPhone || '6281389352752'}</strong>). Chat pribadi lain dengan teman, keluarga, atau grup WhatsApp otomatis diabaikan tanpa intervensi. Ketik <code>#kunci</code> di chat untuk mengunci bot ke ruang obrolan tersebut.
+              </div>
+            </div>
           </div>
 
           {/* Live QR Code Display if waiting to scan */}
