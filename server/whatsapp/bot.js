@@ -264,6 +264,7 @@ export async function startWhatsAppBot() {
         textMessage.startsWith('🔓 *') ||
         textMessage.startsWith('🛡️ *') ||
         textMessage.startsWith('⚠️') ||
+        textMessage.startsWith('💡') ||
         textMessage.startsWith('🔍 *Foto') ||
         textMessage.startsWith('❌ Gagal')
       ) {
@@ -533,6 +534,20 @@ export async function startWhatsAppBot() {
           await sock.sendMessage(remoteJid, {
             text: `❌ Gagal menyimpan transaksi: ${result.error || 'Server error'}`
           }, { quoted: msg });
+        }
+      } else if (textMessage.trim().length > 3) {
+        // If user is in authorized chat and mentions financial keywords but nominal was missed
+        const lower = textMessage.toLowerCase();
+        const seemsFinancial = /\b(beli|jajan|bayar|ongkos|habis|belanja|makan|ngopi|bensin|gaji|transfer|topup|isi saldo|qris|gopay|ovo|dana|shopeepay|warteg|kopi)\b/i.test(lower);
+        if (seemsFinancial) {
+          const tipReply =
+            `⚠️ *Nominal transaksi belum terbaca dengan jelas.*\n\n` +
+            `Contoh format pencatatan praktis:\n` +
+            `• _Beli makan di warteg 15.500 make gopay_\n` +
+            `• _Makan siang 25rb qris_\n` +
+            `• _Bensin pertamax 50k cash_\n\n` +
+            `💡 Atau cukup kirim foto struk belanja untuk dipindai otomatis!`;
+          await sock.sendMessage(remoteJid, { text: tipReply }, { quoted: msg });
         }
       }
     }

@@ -37,9 +37,9 @@ export function parseChatText(rawText = '') {
   }
 
   // 2. Strict Financial Intent Check
-  // A message MUST have a financial currency indicator (rp, idr, k, rb, jt) OR an explicit financial action verb!
-  const hasCurrencyIndicator = /(?:rp\.?|idr|\$)\s*\d+|\d+\s*(?:k|rb|ribu|jt|juta)\b/i.test(lower);
-  const hasFinancialKeyword = /\b(beli|jajan|bayar|ongkos|habis|belanja|makan|ngopi|bensin|gaji|transfer|topup|top up|isi saldo|pemasukan|pengeluaran|tf|checkout|pesan|order|struk|qris|biaya|tagihan|sewa|indomaret|alfamart|supermarket|warung|resto|cafe|kopi|pulsa|listrik|token|dana|gopay|ovo|shopeepay|cash|tunai)\b/i.test(lower);
+  // A message MUST have a financial currency indicator (rp, idr, k, rb, jt) OR an explicit financial action verb / merchant!
+  const hasCurrencyIndicator = /(?:rp\.?|idr|\$)\s*\d+|\d+\s*(?:k|rb|ribu|jt|juta)\b|\b\d{1,3}(?:[., ]\d{3})+\b/i.test(lower);
+  const hasFinancialKeyword = /\b(beli|jajan|bayar|ongkos|habis|belanja|makan|ngopi|bensin|gaji|transfer|topup|top up|isi saldo|pemasukan|pengeluaran|tf|checkout|pesan|order|struk|qris|biaya|tagihan|sewa|indomaret|alfamart|supermarket|warung|warteg|padang|resto|cafe|kafe|kopi|pulsa|listrik|token|dana|gopay|ovo|shopeepay|cash|tunai|kantin|toko|pasar|ojol|grab|gojek|shopee|tokped|tokopedia)\b/i.test(lower);
 
   // If a message has NEITHER a currency unit NOR a financial keyword, reject immediately!
   if (!hasCurrencyIndicator && !hasFinancialKeyword) {
@@ -71,7 +71,7 @@ export function parseChatText(rawText = '') {
   // 4. Extract Monetary Amount from Cleaned Text
   let detectedAmount = 0;
 
-  // Pattern A: Number with Indonesian slang unit (e.g., 30k, 30rb, 30 ribu, 10jt, 1.5jt)
+  // Pattern A: Number with Indonesian slang unit (e.g., 30k, 30rb, 30 ribu, 10jt, 1.5jt, 15.5k)
   const unitMatch = cleanText.match(/\b(\d+(?:[.,]\d+)?)\s*(k|rb|ribu|jt|juta)\b/i);
   if (unitMatch) {
     let numStr = unitMatch[1].replace(/,/g, '.');
@@ -87,11 +87,23 @@ export function parseChatText(rawText = '') {
     }
   }
 
-  // Pattern B: Number with currency prefix (e.g., Rp 50.000, Rp50000, IDR 30.000)
+  // Pattern B: Mixed Indonesian unit with remainder (e.g., 15rb 500, 15k 500, 15rb500)
   if (detectedAmount === 0) {
-    const rpMatch = cleanText.match(/(?:rp\.?|idr|\$)\s*(\d{1,3}(?:[.,]\d{3})*|\d+)/i);
+    const mixedMatch = cleanText.match(/\b(\d+)\s*(?:rb|k)\s*(\d{3})\b/i);
+    if (mixedMatch) {
+      const thousands = parseInt(mixedMatch[1], 10) * 1000;
+      const remainder = parseInt(mixedMatch[2], 10);
+      if (!isNaN(thousands) && !isNaN(remainder)) {
+        detectedAmount = thousands + remainder;
+      }
+    }
+  }
+
+  // Pattern C: Number with currency prefix (e.g., Rp 50.000, Rp 15 500, Rp50000, IDR 30.000)
+  if (detectedAmount === 0) {
+    const rpMatch = cleanText.match(/(?:rp\.?|idr|\$)\s*(\d{1,3}(?:[., ]\d{3})*|\d+)/i);
     if (rpMatch) {
-      let numStr = rpMatch[1].replace(/[.,]/g, '');
+      let numStr = rpMatch[1].replace(/[., ]/g, '');
       let val = parseInt(numStr, 10);
       if (!isNaN(val) && val > 0) {
         detectedAmount = val;
@@ -99,12 +111,12 @@ export function parseChatText(rawText = '') {
     }
   }
 
-  // Pattern C: Full thousands formatted number (e.g., 30.000, 150.000, 1.500.000)
-  // Must have 3 digits after the dot to prevent matching 10.30 (time)
+  // Pattern D: Full thousands formatted number with dot, comma, or space (e.g., 15 500, 30.000, 15,500, 150 000, 1.500.000)
+  // Must have exactly 3 digits after the separator ([., ]\d{3}) to guarantee it is thousands and NOT a time like 10.30
   if (detectedAmount === 0) {
-    const formattedMatch = cleanText.match(/\b(\d{1,3}(?:\.\d{3})+)\b/);
+    const formattedMatch = cleanText.match(/\b(\d{1,3}(?:[., ]\d{3})+)\b/);
     if (formattedMatch) {
-      let numStr = formattedMatch[1].replace(/\./g, '');
+      let numStr = formattedMatch[1].replace(/[., ]/g, '');
       let val = parseInt(numStr, 10);
       if (!isNaN(val) && val >= 1000) {
         detectedAmount = val;
@@ -112,7 +124,7 @@ export function parseChatText(rawText = '') {
     }
   }
 
-  // Pattern D: Bare large integer (e.g. 50000, 25000) ONLY IF explicit financial keyword is present
+  // Pattern E: Bare large integer (e.g. 50000, 25000, 15500) ONLY IF explicit financial keyword is present
   if (detectedAmount === 0 && hasFinancialKeyword) {
     const bareMatch = cleanText.match(/\b(\d{4,8})\b/);
     if (bareMatch) {
@@ -161,7 +173,10 @@ export function parseChatText(rawText = '') {
   } else if (/mcd|mcdonald|kfc|burger king|aw|hokben/i.test(lower)) {
     merchantOrPlace = 'Fast Food';
     detectedCategory = 'Food & Dining';
-  } else if (/warteg|padang|soto|bakso|mie ayam|pecel/i.test(lower)) {
+  } else if (/warteg/i.test(lower)) {
+    merchantOrPlace = 'Warteg';
+    detectedCategory = 'Food & Dining';
+  } else if (/padang|soto|bakso|mie ayam|pecel/i.test(lower)) {
     merchantOrPlace = 'Kuliner';
     detectedCategory = 'Food & Dining';
   } else if (/tokopedia|tokped|shopee|lazada|tiktok shop/i.test(lower)) {
