@@ -4,7 +4,7 @@ import {
   Moon,
   Plus,
   Send,
-  Code2,
+  MessageSquare,
   Layers,
   UploadCloud,
   LayoutDashboard
