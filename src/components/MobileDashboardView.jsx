@@ -47,7 +47,14 @@ export default function MobileDashboardView({
   onDeleteTransaction,
   onRefresh,
   currentTab,
-  setCurrentTab
+  setCurrentTab,
+  users = [],
+  selectedUser = 'all',
+  onSelectUser,
+  onOpenMemberModal,
+  currentUser,
+  onOpenAuthModal,
+  onLogout
 }) {
   const { summary = {}, categoryBreakdown = [] } = stats;
   const {
@@ -130,14 +137,6 @@ export default function MobileDashboardView({
             <RefreshCw size={14} />
           </button>
 
-          {/* Currency Switcher Pill */}
-          <button
-            className="mobile-pill-action"
-            onClick={toggleCurrency}
-            title="Ubah Mata Uang (IDR / USD)"
-          >
-            {currency}
-          </button>
 
           {/* Dark / Light Mode Toggle */}
           <button
@@ -148,6 +147,38 @@ export default function MobileDashboardView({
           >
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
+
+          {/* User Profile Avatar / Logout Button */}
+          {currentUser ? (
+            <button
+              onClick={onLogout}
+              title={`Akun: ${currentUser.name} (${currentUser.email}). Klik untuk keluar`}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: '50%',
+                background: currentUser.color || '#3b82f6',
+                color: '#fff',
+                border: '2px solid var(--border-color)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+            </button>
+          ) : (
+            <button
+              onClick={onOpenAuthModal}
+              className="mobile-pill-action"
+              style={{ background: 'var(--accent-blue)', color: '#fff', fontWeight: 700, border: 'none' }}
+            >
+              Masuk
+            </button>
+          )}
         </div>
       </header>
 
@@ -168,6 +199,93 @@ export default function MobileDashboardView({
           aria-selected={currentTab === 'upload'}
         >
           <span>📥 Smart Upload & Scan</span>
+        </button>
+      </div>
+
+      {/* Member Profile Switcher Row (Mobile) */}
+      <div
+        className="mobile-member-pill-row"
+        style={{
+          display: 'flex',
+          gap: 8,
+          overflowX: 'auto',
+          padding: '0 4px 12px',
+          scrollbarWidth: 'none',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
+        <button
+          onClick={() => onSelectUser('all')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 12px',
+            borderRadius: 20,
+            border: selectedUser === 'all' ? '2px solid var(--accent-blue)' : '1px solid var(--border-color)',
+            background: selectedUser === 'all' ? 'var(--accent-blue)' : 'var(--card-bg)',
+            color: selectedUser === 'all' ? '#fff' : 'var(--text-primary)',
+            fontSize: '0.78rem',
+            fontWeight: 700,
+            whiteSpace: 'nowrap',
+            cursor: 'pointer'
+          }}
+        >
+          <span>👥 Semua</span>
+        </button>
+
+        {users.map(u => {
+          const isSelected = selectedUser === u.name;
+          return (
+            <button
+              key={u.id}
+              onClick={() => onSelectUser(u.name)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '6px 12px',
+                borderRadius: 20,
+                border: isSelected ? `2px solid ${u.color || 'var(--accent-blue)'}` : '1px solid var(--border-color)',
+                background: isSelected ? (u.color || 'var(--accent-blue)') : 'var(--card-bg)',
+                color: isSelected ? '#fff' : 'var(--text-primary)',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                whiteSpace: 'nowrap',
+                cursor: 'pointer'
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  background: isSelected ? '#fff' : (u.color || '#3b82f6')
+                }}
+              />
+              <span>{u.name}</span>
+            </button>
+          );
+        })}
+
+        <button
+          onClick={onOpenMemberModal}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '6px 12px',
+            borderRadius: 20,
+            border: '1px dashed var(--border-color)',
+            background: 'transparent',
+            color: 'var(--accent-blue)',
+            fontSize: '0.78rem',
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            cursor: 'pointer'
+          }}
+        >
+          <span>+ Anggota</span>
         </button>
       </div>
 
@@ -430,11 +548,22 @@ export default function MobileDashboardView({
                         {tx.description || (isIncome ? 'Pemasukan' : 'Pengeluaran')}
                       </div>
                       <div className="mobile-tx-meta">
+                        <span
+                          style={{
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            color: (tx.user_name?.toLowerCase() === 'amel' ? '#ec4899' : '#3b82f6'),
+                            background: (tx.user_name?.toLowerCase() === 'amel' ? '#ec489918' : '#3b82f618'),
+                            padding: '1px 6px',
+                            borderRadius: 6
+                          }}
+                        >
+                          👤 {tx.user_name || 'Farrel'}
+                        </span>
+                        <span>•</span>
                         <span className="mobile-cat-pill">{tx.category}</span>
                         <span>•</span>
                         <span>{tx.payment_method}</span>
-                        <span>•</span>
-                        <span>{formatDateTime(tx.date)}</span>
                       </div>
                     </div>
                   </div>

@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR = path.join(__dirname, '..', 'database');
 const LOCAL_DB_PATH = path.join(DATA_DIR, 'local_transactions.json');
+const LOCAL_USERS_PATH = path.join(DATA_DIR, 'local_users.json');
 
 // Ensure database folder exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -19,91 +20,39 @@ if (!fs.existsSync(DATA_DIR)) {
 let dbMode = 'uninitialized'; // 'postgres' | 'local_fallback'
 let pgPool = null;
 
-// Initial sample seed transactions adhering strictly to the schema
-const DEFAULT_SEED_DATA = [
-  {
-    id: 1,
-    type: 'income',
-    amount: 18500000,
-    category: 'Salary',
-    payment_method: 'Bank Wire',
-    description: 'Engineering Retainer / Client Q4 Consulting',
-    date: new Date(Date.now() - 12 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 12 * 86400000).toISOString()
-  },
-  {
-    id: 2,
-    type: 'expense',
-    amount: 45000,
-    category: 'Food & Dining',
-    payment_method: 'BCA QRIS',
-    description: 'Flat white & artisan sourdough at Monolith',
-    date: new Date(Date.now() - 10 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 10 * 86400000).toISOString()
-  },
-  {
-    id: 3,
-    type: 'expense',
-    amount: 185000,
-    category: 'Utilities',
-    payment_method: 'Auto Debit',
-    description: 'Gigabit fiber internet & static IP package',
-    date: new Date(Date.now() - 8 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 8 * 86400000).toISOString()
-  },
-  {
-    id: 4,
-    type: 'income',
-    amount: 4200000,
-    category: 'Investments',
-    payment_method: 'Stock Broker',
-    description: 'Index fund Q3 dividend yield distribution',
-    date: new Date(Date.now() - 6 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 6 * 86400000).toISOString()
-  },
-  {
-    id: 5,
-    type: 'expense',
-    amount: 320000,
-    category: 'Transport',
-    payment_method: 'Credit Card',
-    description: 'Executive airport express express & parking',
-    date: new Date(Date.now() - 4 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 4 * 86400000).toISOString()
-  },
-  {
-    id: 6,
-    type: 'expense',
-    amount: 650000,
-    category: 'Health & Wellness',
-    payment_method: 'Apple Pay',
-    description: 'Annual biometric health pass & physical',
-    date: new Date(Date.now() - 2 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 2 * 86400000).toISOString()
-  },
-  {
-    id: 7,
-    type: 'expense',
-    amount: 85000,
-    category: 'Food & Dining',
-    payment_method: 'GoPay',
-    description: 'Ceremonial matcha latte and organic snack',
-    date: new Date(Date.now() - 1 * 86400000).toISOString(),
-    created_at: new Date(Date.now() - 1 * 86400000).toISOString()
-  },
-  {
-    id: 8,
-    type: 'expense',
-    amount: 1200000,
-    category: 'Equipment',
-    payment_method: 'Credit Card',
-    description: 'Studio noise-canceling reference monitors',
-    date: new Date(Date.now() - 6 * 3600000).toISOString(),
-    created_at: new Date(Date.now() - 6 * 3600000).toISOString()
-  }
+const DEFAULT_USERS = [
+  { id: 'farrel', name: 'Farrel', phone: '6281389352752', color: '#3b82f6', created_at: new Date().toISOString() },
+  { id: 'amel', name: 'Amel', phone: '', color: '#ec4899', created_at: new Date().toISOString() }
 ];
 
-// Local JSON Storage Helpers
+export function getPool() {
+  return pgPool;
+}
+
+export function getDbMode() {
+  return dbMode;
+}
+
+export function readLocalUsers() {
+  if (!fs.existsSync(LOCAL_USERS_PATH)) {
+    fs.writeFileSync(LOCAL_USERS_PATH, JSON.stringify(DEFAULT_USERS, null, 2), 'utf-8');
+    return DEFAULT_USERS;
+  }
+  try {
+    const raw = fs.readFileSync(LOCAL_USERS_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_USERS;
+  } catch (err) {
+    console.error('[Memomeir DB] Failed reading local users:', err.message);
+    return DEFAULT_USERS;
+  }
+}
+
+export function writeLocalUsers(data) {
+  fs.writeFileSync(LOCAL_USERS_PATH, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+// Low-level helper: Read local transactions
 function readLocalDb() {
   if (!fs.existsSync(LOCAL_DB_PATH)) {
     fs.writeFileSync(LOCAL_DB_PATH, JSON.stringify([], null, 2), 'utf-8');
@@ -160,7 +109,11 @@ export function validateTransactionData(data) {
   // 5. description (text)
   const description = data.description !== undefined && data.description !== null ? String(data.description).trim() : '';
 
-  // 6. date (timestamp)
+  // 6. user_id & user_name
+  const user_id = data.user_id || data.userId || null;
+  const user_name = data.user_name ? String(data.user_name).trim() : (data.user ? String(data.user).trim() : (user_id ? undefined : 'Farrel'));
+
+  // 7. date (timestamp)
   let dateObj = new Date();
   if (data.date) {
     const parsed = new Date(data.date);
@@ -175,6 +128,8 @@ export function validateTransactionData(data) {
     return { valid: false, errors };
   }
 
+  const defaultId = user_name?.toLowerCase() === 'amel' ? 'amel' : 'farrel';
+
   return {
     valid: true,
     data: {
@@ -183,6 +138,8 @@ export function validateTransactionData(data) {
       category,
       payment_method,
       description,
+      user_id: user_id || defaultId,
+      user_name: user_name || 'Farrel',
       date: dateObj.toISOString()
     }
   };
@@ -200,7 +157,6 @@ export async function initDb() {
         ssl: databaseUrl.includes('sslmode=disable') ? false : { rejectUnauthorized: false }
       });
 
-      // Test connection
       const client = await pgPool.connect();
       console.log('[Memomeir DB] Connected successfully to PostgreSQL.');
 
@@ -212,6 +168,20 @@ export async function initDb() {
             WHEN duplicate_object THEN null;
         END $$;
 
+        CREATE TABLE IF NOT EXISTS users (
+            id VARCHAR(50) PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            phone VARCHAR(50) DEFAULT '',
+            color VARCHAR(20) DEFAULT '#3b82f6',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        INSERT INTO users (id, name, phone, color)
+        VALUES 
+            ('farrel', 'Farrel', '6281389352752', '#3b82f6'),
+            ('amel', 'Amel', '', '#ec4899')
+        ON CONFLICT (id) DO NOTHING;
+
         CREATE TABLE IF NOT EXISTS transactions (
             id BIGSERIAL PRIMARY KEY,
             type transaction_type NOT NULL,
@@ -219,27 +189,20 @@ export async function initDb() {
             category VARCHAR(100) NOT NULL,
             payment_method VARCHAR(100) NOT NULL,
             description TEXT DEFAULT '',
+            user_name VARCHAR(100) NOT NULL DEFAULT 'Farrel',
             date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
             created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
+        ALTER TABLE transactions ADD COLUMN IF NOT EXISTS user_name VARCHAR(100) NOT NULL DEFAULT 'Farrel';
+
         CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date DESC);
         CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
         CREATE INDEX IF NOT EXISTS idx_transactions_category ON transactions(category);
+        CREATE INDEX IF NOT EXISTS idx_transactions_payment_method ON transactions(payment_method);
+        CREATE INDEX IF NOT EXISTS idx_transactions_user_name ON transactions(user_name);
+        CREATE INDEX IF NOT EXISTS idx_transactions_composite_stats ON transactions(user_name, date, type, amount);
       `);
-
-      // Check if table is empty, if so, seed sample data
-      const countRes = await client.query('SELECT COUNT(*) as count FROM transactions');
-      if (parseInt(countRes.rows[0].count, 10) === 0) {
-        console.log('[Memomeir DB] PostgreSQL transactions table empty. Seeding demo transactions...');
-        for (const item of DEFAULT_SEED_DATA) {
-          await client.query(
-            `INSERT INTO transactions (type, amount, category, payment_method, description, date)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [item.type, item.amount, item.category, item.payment_method, item.description, item.date]
-          );
-        }
-      }
 
       client.release();
       dbMode = 'postgres';
@@ -255,8 +218,62 @@ export async function initDb() {
 
   // Fallback mode initialization
   readLocalDb();
+  readLocalUsers();
   dbMode = 'local_fallback';
   return { mode: 'local_fallback', success: true };
+}
+
+// User Management Methods
+export async function getUsers() {
+  if (dbMode === 'postgres' && pgPool) {
+    const res = await pgPool.query('SELECT id, name, phone, color, created_at FROM users ORDER BY created_at ASC');
+    return res.rows;
+  }
+  return readLocalUsers();
+}
+
+export async function createUser({ name, phone = '', color = '#3b82f6' }) {
+  const cleanName = String(name || '').trim();
+  if (!cleanName) throw new Error('User name is required');
+  const id = cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+
+  if (dbMode === 'postgres' && pgPool) {
+    const res = await pgPool.query(
+      `INSERT INTO users (id, name, phone, color)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, phone = EXCLUDED.phone, color = EXCLUDED.color
+       RETURNING id, name, phone, color, created_at`,
+      [id, cleanName, phone, color]
+    );
+    return res.rows[0];
+  }
+  const users = readLocalUsers();
+  const existing = users.find(u => u.id === id);
+  if (existing) {
+    existing.name = cleanName;
+    existing.phone = phone;
+    existing.color = color;
+    writeLocalUsers(users);
+    return existing;
+  }
+  const newUser = { id, name: cleanName, phone, color, created_at: new Date().toISOString() };
+  users.push(newUser);
+  writeLocalUsers(users);
+  return newUser;
+}
+
+export async function deleteUser(id) {
+  if (id === 'farrel') {
+    throw new Error('Default owner Farrel cannot be deleted');
+  }
+  if (dbMode === 'postgres' && pgPool) {
+    await pgPool.query('DELETE FROM users WHERE id = $1', [id]);
+    return true;
+  }
+  let users = readLocalUsers();
+  users = users.filter(u => u.id !== id);
+  writeLocalUsers(users);
+  return true;
 }
 
 // Insert Transaction (Adhering to PostgreSQL types)
@@ -269,15 +286,15 @@ export async function insertTransaction(rawTx) {
     throw error;
   }
 
-  const { type, amount, category, payment_method, description, date } = validated.data;
+  const { type, amount, category, payment_method, description, user_id, user_name, date } = validated.data;
 
   if (dbMode === 'postgres' && pgPool) {
     const queryText = `
-      INSERT INTO transactions (type, amount, category, payment_method, description, date)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id, type, amount, category, payment_method, description, date, created_at
+      INSERT INTO transactions (type, amount, category, payment_method, description, user_id, user_name, date)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING id, type, amount, category, payment_method, description, user_id, user_name, date, created_at
     `;
-    const res = await pgPool.query(queryText, [type, amount, category, payment_method, description, date]);
+    const res = await pgPool.query(queryText, [type, amount, category, payment_method, description, user_id, user_name, date]);
     return res.rows[0];
   } else {
     // Local fallback
@@ -290,6 +307,8 @@ export async function insertTransaction(rawTx) {
       category,
       payment_method,
       description,
+      user_id,
+      user_name,
       date,
       created_at: new Date().toISOString()
     };
@@ -299,7 +318,7 @@ export async function insertTransaction(rawTx) {
   }
 }
 
-// Get Transactions (with filtering, search, and pagination)
+// Get Transactions (with filtering, search, pagination, and multi-user filter)
 export async function getTransactions(options = {}) {
   const {
     limit = 50,
@@ -307,6 +326,8 @@ export async function getTransactions(options = {}) {
     type,
     category,
     search,
+    user_id,
+    user_name,
     sortBy = 'date',
     sortOrder = 'desc'
   } = options;
@@ -315,6 +336,14 @@ export async function getTransactions(options = {}) {
     let whereClauses = [];
     let values = [];
     let paramIndex = 1;
+
+    if (user_id && user_id !== 'all') {
+      whereClauses.push(`user_id = $${paramIndex++}`);
+      values.push(user_id);
+    } else if (user_name && user_name !== 'all') {
+      whereClauses.push(`user_name ILIKE $${paramIndex++}`);
+      values.push(user_name);
+    }
 
     if (type && ['income', 'expense'].includes(type)) {
       whereClauses.push(`type = $${paramIndex++}`);
@@ -327,13 +356,13 @@ export async function getTransactions(options = {}) {
     }
 
     if (search) {
-      whereClauses.push(`(description ILIKE $${paramIndex} OR category ILIKE $${paramIndex} OR payment_method ILIKE $${paramIndex})`);
+      whereClauses.push(`(description ILIKE $${paramIndex} OR category ILIKE $${paramIndex} OR payment_method ILIKE $${paramIndex} OR user_name ILIKE $${paramIndex})`);
       values.push(`%${search}%`);
       paramIndex++;
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
-    const safeSortBy = ['date', 'amount', 'created_at'].includes(sortBy) ? sortBy : 'date';
+    const safeSortBy = ['date', 'amount', 'created_at', 'user_name'].includes(sortBy) ? sortBy : 'date';
     const safeOrder = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
     // Count query
@@ -343,7 +372,7 @@ export async function getTransactions(options = {}) {
     // Records query
     values.push(Number(limit), Number(offset));
     const recordsRes = await pgPool.query(
-      `SELECT id, type, amount, category, payment_method, description, date, created_at
+      `SELECT id, type, amount, category, payment_method, description, user_name, date, created_at
        FROM transactions
        ${whereSql}
        ORDER BY ${safeSortBy} ${safeOrder}
@@ -369,17 +398,24 @@ export async function getTransactions(options = {}) {
       list = list.filter(item => item.category.toLowerCase() === category.toLowerCase());
     }
 
+    if (user_id && user_id !== 'all') {
+      list = list.filter(item => String(item.user_id || 'farrel') === String(user_id));
+    } else if (user_name && user_name !== 'all') {
+      list = list.filter(item => String(item.user_name || 'Farrel').toLowerCase() === user_name.toLowerCase());
+    }
+
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(item =>
         (item.description && item.description.toLowerCase().includes(q)) ||
         (item.category && item.category.toLowerCase().includes(q)) ||
-        (item.payment_method && item.payment_method.toLowerCase().includes(q))
+        (item.payment_method && item.payment_method.toLowerCase().includes(q)) ||
+        (item.user_name && item.user_name.toLowerCase().includes(q))
       );
     }
 
     const safeSortBy = ['date', 'amount', 'created_at'].includes(sortBy) ? sortBy : 'date';
-    const isAsc = sortOrder.toLowerCase() === 'asc';
+    const safeOrder = sortOrder.toLowerCase() === 'asc' ? 1 : -1;
 
     list.sort((a, b) => {
       let valA = a[safeSortBy];
@@ -388,7 +424,7 @@ export async function getTransactions(options = {}) {
         valA = new Date(valA).getTime();
         valB = new Date(valB).getTime();
       }
-      return isAsc ? (valA > valB ? 1 : -1) : (valA < valB ? 1 : -1);
+      return valA > valB ? safeOrder : valA < valB ? -safeOrder : 0;
     });
 
     const total = list.length;
@@ -403,7 +439,21 @@ export async function getTransactions(options = {}) {
   }
 }
 
-// Delete a transaction
+// Get Single Transaction by ID
+export async function getTransactionById(id) {
+  if (dbMode === 'postgres' && pgPool) {
+    const res = await pgPool.query(
+      'SELECT id, type, amount, category, payment_method, description, user_name, date, created_at FROM transactions WHERE id = $1',
+      [id]
+    );
+    return res.rows[0] || null;
+  } else {
+    const list = readLocalDb();
+    return list.find(item => String(item.id) === String(id)) || null;
+  }
+}
+
+// Delete Transaction
 export async function deleteTransaction(id) {
   if (dbMode === 'postgres' && pgPool) {
     const res = await pgPool.query('DELETE FROM transactions WHERE id = $1 RETURNING id', [id]);
@@ -420,37 +470,35 @@ export async function deleteTransaction(id) {
   }
 }
 
-// Clear all transactions for clean real database
-export async function clearAllTransactions() {
+// Clear transactions from database (optionally scoped to user)
+export async function clearAllTransactions(userId) {
   if (dbMode === 'postgres' && pgPool) {
-    await pgPool.query('TRUNCATE TABLE transactions RESTART IDENTITY');
+    if (userId) {
+      await pgPool.query('DELETE FROM transactions WHERE user_id = $1', [userId]);
+    } else {
+      await pgPool.query('TRUNCATE TABLE transactions RESTART IDENTITY');
+    }
   } else {
-    writeLocalDb([]);
+    if (userId) {
+      let list = readLocalDb();
+      list = list.filter(t => t.user_id !== userId);
+      writeLocalDb(list);
+    } else {
+      writeLocalDb([]);
+    }
   }
   return true;
 }
 
-// Reset / Seed demo transactions (only when user explicitly requests demo data)
-export async function resetSeedData() {
-  if (dbMode === 'postgres' && pgPool) {
-    await pgPool.query('TRUNCATE TABLE transactions RESTART IDENTITY');
-    for (const item of DEFAULT_SEED_DATA) {
-      await pgPool.query(
-        `INSERT INTO transactions (type, amount, category, payment_method, description, date)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [item.type, item.amount, item.category, item.payment_method, item.description, item.date]
-      );
-    }
-    return true;
-  } else {
-    writeLocalDb([...DEFAULT_SEED_DATA]);
-    return true;
-  }
+// Reset data (clears transactions to start fresh)
+export async function resetSeedData(userId) {
+  return await clearAllTransactions(userId);
 }
 
-// Compute Aggregated Financial Statistics
-export async function getDashboardStats() {
-  const result = await getTransactions({ limit: 1000 });
+// Compute Aggregated Financial Statistics (With Multi-User Filtering & Breakdown)
+export async function getDashboardStats(options = {}) {
+  const { user_id, user_name } = options;
+  const result = await getTransactions({ limit: 5000, user_id, user_name });
   const allTxs = result.transactions;
 
   let totalIncome = 0;
@@ -459,6 +507,7 @@ export async function getDashboardStats() {
   const categoryIncome = {};
   const monthlyExpenses = {};
   const paymentMethodStats = {};
+  const userBreakdown = {};
 
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -471,15 +520,23 @@ export async function getDashboardStats() {
     const txMonthKey = !isNaN(txDate.getTime())
       ? `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`
       : currentMonthKey;
+    const uName = tx.user_name || 'Farrel';
+
+    if (!userBreakdown[uName]) {
+      userBreakdown[uName] = { income: 0, expense: 0, count: 0 };
+    }
+    userBreakdown[uName].count += 1;
 
     if (tx.type === 'income') {
       totalIncome += amt;
+      userBreakdown[uName].income += amt;
       categoryIncome[tx.category] = (categoryIncome[tx.category] || 0) + amt;
       if (txMonthKey === currentMonthKey) {
         currentMonthIncome += amt;
       }
     } else {
       totalExpense += amt;
+      userBreakdown[uName].expense += amt;
       categoryExpenses[tx.category] = (categoryExpenses[tx.category] || 0) + amt;
       monthlyExpenses[txMonthKey] = (monthlyExpenses[txMonthKey] || 0) + amt;
       paymentMethodStats[tx.payment_method] = (paymentMethodStats[tx.payment_method] || 0) + amt;
@@ -492,7 +549,7 @@ export async function getDashboardStats() {
   const totalBalance = totalIncome - totalExpense;
   const savingsRate = totalIncome > 0 ? Math.round(((totalIncome - totalExpense) / totalIncome) * 100) : 0;
 
-  // Format category expenses for minimalist chart visualization
+  // Format category expenses for chart visualization
   const categoryBreakdown = Object.entries(categoryExpenses)
     .map(([category, amount]) => ({
       category,
@@ -510,10 +567,12 @@ export async function getDashboardStats() {
       totalExpense,
       savingsRate,
       transactionCount: allTxs.length,
-      currentMonthKey
+      currentMonthKey,
+      activeUser: user_name || 'all'
     },
     categoryBreakdown,
     paymentMethodStats,
+    userBreakdown,
     dbStatus: getDbStatus()
   };
 }
@@ -531,6 +590,7 @@ export function getDbStatus() {
       category: 'string',
       payment_method: 'string',
       description: 'text',
+      user_name: 'string',
       date: 'timestamp'
     }
   };

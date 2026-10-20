@@ -26,11 +26,28 @@ if (!fs.existsSync(AUTH_DIR)) {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 }
 
+const AUTO_OFF_MS = 2 * 60 * 1000; // 2 minutes (120,000 ms)
+let autoOffTimer = null;
+let currentSock = null;
+
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
       if (typeof cfg.enabled === 'undefined') cfg.enabled = true;
+
+      // Auto-Off Check: If enabled and autoOffAt has passed 2 minutes, turn off automatically
+      if (cfg.enabled && cfg.autoOffAt) {
+        const expiry = new Date(cfg.autoOffAt).getTime();
+        if (Date.now() >= expiry) {
+          console.log('[Bot Auto-Off] Waktu aktif 2 menit telah selesai. Menonaktifkan bot otomatis ke Mode Tidur.');
+          cfg.enabled = false;
+          cfg.autoOffTriggeredAt = new Date().toISOString();
+          delete cfg.autoOffAt;
+          saveConfig(cfg);
+        }
+      }
+
       return cfg;
     }
   } catch (err) {
@@ -46,6 +63,44 @@ function loadConfig() {
     allowedNumbers: ['6281389352752', '149104101474415'],
     allowedRooms: ['6281389352752@s.whatsapp.net', '149104101474415@lid']
   };
+}
+
+function triggerAutoOff(sockInstance, targetJid) {
+  const currentCfg = loadConfig();
+  if (!currentCfg.enabled) return;
+
+  console.log('[Bot Auto-Off] Waktu 2 menit selesai. Menonaktifkan bot otomatis ke Mode Tidur.');
+  currentCfg.enabled = false;
+  currentCfg.autoOffTriggeredAt = new Date().toISOString();
+  delete currentCfg.autoOffAt;
+  saveConfig(currentCfg);
+
+  if (autoOffTimer) {
+    clearTimeout(autoOffTimer);
+    autoOffTimer = null;
+  }
+
+  // Send polite notification to user if socket is connected
+  if (sockInstance && targetJid) {
+    const notifyMsg =
+      `⏱️ *Auto-Off: Bot Memomeir Dinonaktifkan Otomatis (2 Menit Selesai)*\n\n` +
+      `Waktu aktif bot telah mencapai 2 menit. Bot otomatis kembali ke *Mode Tidur (OFF)* agar obrolan pribadi Anda tidak terganggu.\n\n` +
+      `💡 Ketik *#on* atau *#aktif* kapan saja untuk menyalakan bot lagi selama 2 menit.`;
+    sockInstance.sendMessage(targetJid, { text: notifyMsg }).catch(err => {
+      console.warn('[Bot Auto-Off Notify Warn]:', err.message);
+    });
+  }
+}
+
+function startAutoOffTimer(sockInstance, targetJid) {
+  if (autoOffTimer) {
+    clearTimeout(autoOffTimer);
+    autoOffTimer = null;
+  }
+
+  autoOffTimer = setTimeout(() => {
+    triggerAutoOff(sockInstance, targetJid);
+  }, AUTO_OFF_MS);
 }
 
 function saveConfig(cfg) {
@@ -99,6 +154,22 @@ async function getRecentTransactions(limit = 5) {
   return null;
 }
 
+// Fetch registered member profiles from Memomeir API
+async function getRegisteredUsers() {
+  try {
+    const res = await fetch(`${API_BASE}/api/users`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.error('[Bot API] Failed to fetch users:', err.message);
+  }
+  return [
+    { id: 'farrel', name: 'Farrel', phone: '6281389352752' },
+    { id: 'amel', name: 'Amel', phone: '' }
+  ];
+}
+
 // Insert transaction into Memomeir database
 async function recordTransaction(payload) {
   try {
@@ -135,6 +206,20 @@ export async function startWhatsAppBot() {
     auth: state,
     browser: ['Memomeir Keuangan', 'Chrome', '120.0.0']
   });
+
+  currentSock = sock;
+
+  // Background monitor to guarantee 2-minute auto-off triggers even with zero incoming chat
+  setInterval(() => {
+    const cfg = loadConfig();
+    if (cfg.enabled && cfg.autoOffAt) {
+      const expiry = new Date(cfg.autoOffAt).getTime();
+      if (Date.now() >= expiry) {
+        const recipient = cfg.lastActiveJid || cfg.lockedRoomJid || (cfg.ownerPhone ? `${cfg.ownerPhone}@s.whatsapp.net` : null);
+        triggerAutoOff(currentSock, recipient);
+      }
+    }
+  }, 3000);
 
   sock.ev.on('creds.update', saveCreds);
 
@@ -229,7 +314,15 @@ export async function startWhatsAppBot() {
       const ownerPhone = (config.ownerPhone || '6281389352752').replace(/[^0-9]/g, '');
       const ownerLid = (config.ownerLid || '149104101474415').replace(/[^0-9]/g, '');
 
-      // Strictly check if this room is Farrel's own self-chat or locked room
+      // Check registered household/team members
+      const registeredUsers = await getRegisteredUsers();
+      const matchedMember = registeredUsers.find(u => {
+        const uPhone = (u.phone || '').replace(/[^0-9]/g, '');
+        return uPhone && uPhone.length >= 8 && (uPhone === remotePhone || remotePhone.endsWith(uPhone));
+      });
+      const isRegisteredMember = Boolean(matchedMember);
+
+      // Strictly check if this room is Farrel's own self-chat, locked room, or registered member
       const isFarrelPhone = Boolean(remotePhone && (remotePhone === userPhone || remotePhone === ownerPhone));
       const isFarrelLid = Boolean(remotePhone && (remotePhone === userLid || remotePhone === ownerLid));
       const isLockedRoom = Boolean(
@@ -244,24 +337,39 @@ export async function startWhatsAppBot() {
       } else if (config.mode === 'locked_room') {
         isAuthorized = isLockedRoom;
       } else {
-        // Default: 'self_only' -> HANYA nomor Farrel atau LID Farrel sendiri!
-        isAuthorized = isFarrelPhone || isFarrelLid || isLockedRoom;
+        // Default: 'self_only' -> nomor Farrel, LID Farrel, lockedRoom, atau nomor anggota keluarga terdaftar!
+        isAuthorized = isFarrelPhone || isFarrelLid || isLockedRoom || isRegisteredMember;
       }
 
       console.log(`[WA Bot] Chat from: ${remoteJid} (remotePhone: ${remotePhone}) -> authorized: ${isAuthorized}`);
 
-      // Jika obrolan BUKAN ruang obrolan Farrel (misal chat dengan Amel), abaikan 100%!
+      // Jika obrolan BUKAN ruang obrolan terotorisasi, abaikan 100%!
       if (!isAuthorized) {
         continue;
       }
 
-      // Extract text content
-      const textMessage =
+      // Extract raw text content
+      let rawTextMessage =
         msg.message?.conversation ||
         msg.message?.extendedTextMessage?.text ||
         msg.message?.imageMessage?.caption ||
         msg.message?.videoMessage?.caption ||
         '';
+
+      let textMessage = rawTextMessage;
+      let assignedUserName = matchedMember ? matchedMember.name : (config.ownerName || 'Farrel');
+      let assignedUserId = matchedMember ? matchedMember.id : 'farrel';
+
+      // Check for member tag prefix (e.g. #amel, #farrel, @amel, @farrel)
+      for (const u of registeredUsers) {
+        const tagRegex = new RegExp(`(?:#|@)${u.name}\\b`, 'i');
+        if (tagRegex.test(textMessage)) {
+          assignedUserName = u.name;
+          assignedUserId = u.id;
+          textMessage = textMessage.replace(tagRegex, '').trim();
+          break;
+        }
+      }
 
       // Ignore messages generated by the bot itself to prevent infinite feedback loops
       if (
@@ -283,7 +391,6 @@ export async function startWhatsAppBot() {
         continue;
       }
 
-
       const isImage = Boolean(msg.message?.imageMessage);
 
       // ==============================================================
@@ -295,12 +402,12 @@ export async function startWhatsAppBot() {
           continue;
         }
 
-        console.log(`[WA Bot] Menerima foto struk dari ${remoteJid}...`);
+        console.log(`[WA Bot] Menerima foto struk dari ${remoteJid} untuk ${assignedUserName}...`);
 
         try {
           // Send waiting acknowledgment
           await sock.sendMessage(remoteJid, {
-            text: '🔍 *Foto struk belanja diterima!*\nSedang memindai total nominal dan toko via OCR AI...',
+            text: `🔍 *Foto struk belanja diterima untuk ${assignedUserName}!*\nSedang memindai total nominal dan toko via OCR AI...`,
           }, { quoted: msg });
 
           // Download image buffer from WhatsApp
@@ -325,12 +432,16 @@ export async function startWhatsAppBot() {
               category: parsedReceipt.category,
               payment_method: parsedReceipt.payment_method,
               description: parsedReceipt.description,
-              date: parsedReceipt.date
+              date: parsedReceipt.date,
+              user_name: assignedUserName,
+              user_id: assignedUserId,
+              phone: remotePhone
             });
 
             if (result.ok) {
               const reply =
                 `🧾 *Struk Belanja Berhasil Dipindai!*\n\n` +
+                `👤 *Anggota:* ${assignedUserName}\n` +
                 `🏪 *Tempat:* ${parsedReceipt.merchant}\n` +
                 `💰 *Total:* ${formatRupiah(parsedReceipt.amount)}\n` +
                 `📂 *Kategori:* ${parsedReceipt.category}\n` +
@@ -377,12 +488,18 @@ export async function startWhatsAppBot() {
         // 1. Matikan Bot (Pause / Mode Tidur)
         if (parsed.command === 'bot_off') {
           config.enabled = false;
+          delete config.autoOffAt;
           saveConfig(config);
+
+          if (autoOffTimer) {
+            clearTimeout(autoOffTimer);
+            autoOffTimer = null;
+          }
 
           const offReply =
             `🔴 *Bot Memomeir Dinonaktifkan (Mode Tidur)*\n\n` +
-            `Bot telah dijeda dan *tidak akan mencatat transaksi* ataupun merespon chat santai apa pun.\n\n` +
-            `💡 Ketik *#on* atau *#aktif* kapan saja untuk mengaktifkan bot kembali.`;
+            `Bot telah dijeda dan *tidak akan mencatat transaksi* ataupun merespon obrolan apa pun.\n\n` +
+            `💡 Ketik *#on* atau *#aktif* kapan saja untuk mengaktifkan bot kembali selama 2 menit.`;
 
           await sock.sendMessage(remoteJid, { text: offReply }, { quoted: msg });
           continue;
@@ -391,12 +508,19 @@ export async function startWhatsAppBot() {
         // 2. Aktifkan Bot (Resume / Nyalakan)
         if (parsed.command === 'bot_on') {
           config.enabled = true;
+          config.enabledAt = new Date().toISOString();
+          config.autoOffAt = new Date(Date.now() + AUTO_OFF_MS).toISOString();
+          config.lastActiveJid = remoteJid;
           saveConfig(config);
+
+          startAutoOffTimer(sock, remoteJid);
 
           const onReply =
             `🟢 *Bot Memomeir Berhasil Diaktifkan!*\n\n` +
-            `Bot sekarang aktif kembali dan siap mencatat pengeluaran atau struk belanja Anda seperti biasa.\n\n` +
-            `💡 Ketik *#off* atau *#mati* jika ingin menonaktifkan bot kembali sewaktu-waktu.`;
+            `Bot sekarang aktif dan siap mencatat pengeluaran atau struk belanja Anda.\n\n` +
+            `⏱️ *Fitur Auto-Off Aktif (Maks 2 Menit):*\n` +
+            `Bot akan otomatis nonaktif (kembali ke Mode Tidur) dalam 2 menit agar obrolan pribadi Anda tetap aman.\n\n` +
+            `💡 Ketik *#off* atau *#mati* jika ingin menonaktifkan bot lebih cepat.`;
 
           await sock.sendMessage(remoteJid, { text: onReply }, { quoted: msg });
           continue;
@@ -547,7 +671,12 @@ export async function startWhatsAppBot() {
             `• _Gaji bulanan masuk 10jt_\n\n` +
             `2️⃣ *Kirim Foto Struk Kasir:*\n` +
             `Tinggal foto struk belanja Indomaret/Alfamart/Resto dan kirim ke sini. AI akan membaca total belanja otomatis!\n\n` +
-            `3️⃣ *Perintah Cepat:*\n` +
+            `3️⃣ *Multi-User / Catat untuk Pasangan / Anggota:*\n` +
+            `• Ketik tag anggota di depan, contoh:\n` +
+            `  _#amel Chatime 28rb QRIS_\n` +
+            `  _#farrel Bensin Pertamax 50k Cash_\n` +
+            `• Atau daftarkan nomor HP anggota di dashboard web agar otomatis tercatat atas namanya!\n\n` +
+            `4️⃣ *Perintah Cepat:*\n` +
             `• Ketik *#off* untuk menonaktifkan bot (mode tidur).\n` +
             `• Ketik *#on* untuk mengaktifkan kembali bot.\n` +
             `• Ketik *saldo* untuk melihat saldo saat ini.\n` +
@@ -576,19 +705,23 @@ export async function startWhatsAppBot() {
           category: parsed.category,
           payment_method: parsed.payment_method,
           description: parsed.description,
-          date: parsed.date
+          date: parsed.date,
+          user_name: assignedUserName,
+          user_id: assignedUserId,
+          phone: remotePhone
         });
 
         if (result.ok) {
           const typeBadge = parsed.type === 'income' ? '💰 *Pemasukan*' : '💸 *Pengeluaran*';
           const reply =
             `✅ *Transaksi Berhasil Dicatat!*\n\n` +
+            `👤 *Anggota:* ${assignedUserName}\n` +
             `${typeBadge}: ${formatRupiah(parsed.amount)}\n` +
             `📂 *Kategori:* ${parsed.category}\n` +
             (parsed.merchant ? `🏪 *Tempat:* ${parsed.merchant}\n` : '') +
             `💳 *Metode:* ${parsed.payment_method}\n` +
             `📝 *Catatan:* "${parsed.description}"\n\n` +
-            `📊 *Saldo Anda otomatis diperbarui di website!*`;
+            `📊 *Saldo diperbarui di website Memomeir!*`;
 
           await sock.sendMessage(remoteJid, { text: reply }, { quoted: msg });
         } else {

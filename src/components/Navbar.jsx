@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Sun,
   Moon,
@@ -7,7 +7,14 @@ import {
   MessageSquare,
   Layers,
   UploadCloud,
-  LayoutDashboard
+  LayoutDashboard,
+  Users,
+  ChevronDown,
+  UserCheck,
+  UserPlus,
+  LogIn,
+  LogOut,
+  User
 } from 'lucide-react';
 
 export default function Navbar({
@@ -21,9 +28,31 @@ export default function Navbar({
   onOpenAddModal,
   onOpenDocsModal,
   onOpenDbStatus,
-  dbStatus
+  dbStatus,
+  users = [],
+  selectedUser = 'all',
+  onSelectUser,
+  onOpenMemberModal,
+  currentUser,
+  onOpenAuthModal,
+  onLogout
 }) {
   const isPostgres = dbStatus?.engine === 'postgres';
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const activeMember = users.find(u => u.name === selectedUser);
 
   return (
     <header className="top-nav">
@@ -39,11 +68,8 @@ export default function Navbar({
         <div className="brand-title-wrap">
           <div className="brand-title" onClick={() => setCurrentTab('dashboard')} style={{ cursor: 'pointer' }}>
             Memomeir
-            <span className="cartoon-pill-badge" style={{ fontSize: '0.62rem', padding: '2px 8px' }}>
-              Keuangan Harian
-            </span>
           </div>
-          <span className="brand-sub">Pencatat Keuangan Pribadi & WhatsApp Bot</span>
+          <span className="brand-sub">Pencatat Keuangan Pribadi</span>
         </div>
       </div>
 
@@ -78,25 +104,122 @@ export default function Navbar({
       </div>
 
       <div className="nav-actions">
-        {/* Live Engine Status */}
-        <button
-          className="status-pill desktop-only"
-          onClick={onOpenDbStatus}
-          title="Klik untuk melihat status penyimpanan database"
-        >
-          <span className="status-dot pulse" style={{ backgroundColor: 'var(--income-color)' }} />
-          <span>{isPostgres ? 'Database: Cloud' : 'Penyimpanan: Aktif'}</span>
-        </button>
+        {/* User Account / Login / Register Button */}
+        {currentUser ? (
+          <div className="profile-switcher-wrap" ref={userMenuRef} style={{ position: 'relative' }}>
+            <button
+              className="btn btn-secondary cartoon-pill-btn"
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              title="Profil Akun Anda"
+              style={{
+                padding: '5px 12px',
+                fontSize: '0.82rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                borderColor: currentUser.color || 'var(--accent-blue)'
+              }}
+            >
+              <span
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: '50%',
+                  background: currentUser.color || '#3b82f6',
+                  color: '#fff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.72rem',
+                  fontWeight: 700
+                }}
+              >
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+              </span>
+              <div style={{ textAlign: 'left', lineHeight: 1.15 }}>
+                <span style={{ fontWeight: 700, display: 'block', fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                  {currentUser.name}
+                </span>
+                <span style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>
+                  {currentUser.email || 'user'}
+                </span>
+              </div>
+              <ChevronDown size={13} style={{ opacity: 0.7, transform: isUserMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </button>
 
-        {/* Currency Switcher */}
-        <button
-          className="btn btn-secondary cartoon-pill-btn"
-          onClick={toggleCurrency}
-          title="Ganti Format Mata Uang (IDR / USD)"
-          style={{ padding: '6px 14px', fontSize: '0.78rem' }}
-        >
-          <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{currency}</span>
-        </button>
+            {isUserMenuOpen && (
+              <div
+                className="cartoon-dropdown"
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: 250,
+                  background: 'var(--card-bg)',
+                  borderRadius: 14,
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                  padding: '8px',
+                  zIndex: 1000
+                }}
+              >
+                <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--border-color)', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                    {currentUser.name}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                    {currentUser.email}
+                  </div>
+                  {currentUser.phone ? (
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                      📱 +{currentUser.phone}
+                    </div>
+                  ) : null}
+                  <div style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 700, marginTop: 4 }}>
+                    ● Sesi Aktif & Terisolasi
+                  </div>
+                </div>
+
+                {/* Logout / Switch Account */}
+                <button
+                  className="dropdown-item"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    onLogout();
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    padding: '8px 10px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'transparent',
+                    color: '#ef4444',
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    textAlign: 'left'
+                  }}
+                >
+                  <LogOut size={14} />
+                  <span>Ganti Akun / Keluar</span>
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            className="btn btn-primary cartoon-tactile-btn"
+            onClick={onOpenAuthModal}
+            style={{ padding: '6px 14px', fontSize: '0.82rem' }}
+          >
+            <LogIn size={15} />
+            <span>Masuk / Daftar</span>
+          </button>
+        )}
+
 
         {/* WhatsApp Guide */}
         <button

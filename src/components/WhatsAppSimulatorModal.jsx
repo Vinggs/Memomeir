@@ -146,14 +146,30 @@ export default function WhatsAppSimulatorModal({ isOpen, onClose, onTransactionA
     setBotReply(null);
 
     const payload = parseChatToPayload(chatInput);
+    const token = localStorage.getItem('memomeir_token');
+    const savedUser = localStorage.getItem('memomeir_user');
+    let userObj = null;
+    try { userObj = savedUser ? JSON.parse(savedUser) : null; } catch {}
+
+    // Detect member tag in chat (e.g. #amel or @farrel) or default to logged in user
+    const tagMatch = chatInput.match(/(?:#|@)(\w+)/);
+    if (tagMatch) {
+      payload.user_name = tagMatch[1];
+    } else if (userObj && userObj.name) {
+      payload.user_name = userObj.name;
+      payload.user_id = userObj.id;
+    }
 
     try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-webhook-source': 'whatsapp-ai-bot'
+      };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/webhook/transaction', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-webhook-source': 'whatsapp-ai-bot'
-        },
+        headers,
         body: JSON.stringify(payload)
       });
 

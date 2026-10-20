@@ -9,7 +9,12 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '../utils/formatters.js';
 
-export default function SummaryCards({ summary = {}, currency = 'IDR' }) {
+export default function SummaryCards({
+  summary = {},
+  currency = 'IDR',
+  selectedUser = 'all',
+  users = []
+}) {
   const {
     totalBalance = 0,
     monthlyExpense = 0,
@@ -19,14 +24,24 @@ export default function SummaryCards({ summary = {}, currency = 'IDR' }) {
   } = summary;
 
   const isBalancePositive = totalBalance >= 0;
+  const activeMember = users.find(u => u.name === selectedUser);
+  const userTitle = selectedUser === 'all' ? 'Keluarga' : selectedUser;
 
   return (
     <section className="summary-grid">
       {/* 1. Total Saldo Bersih */}
       <div className="card">
         <div className="card-header-line">
-          <span className="card-label">Total Saldo Bersih</span>
-          <div className="card-icon-badge" style={{ background: 'var(--accent-blue)', color: '#FFFFFF' }}>
+          <span className="card-label">
+            Total Saldo Bersih {selectedUser !== 'all' ? `(${userTitle})` : ''}
+          </span>
+          <div
+            className="card-icon-badge"
+            style={{
+              background: selectedUser !== 'all' ? (activeMember?.color || 'var(--accent-blue)') : 'var(--accent-blue)',
+              color: '#FFFFFF'
+            }}
+          >
             <Wallet size={16} strokeWidth={2.4} />
           </div>
         </div>

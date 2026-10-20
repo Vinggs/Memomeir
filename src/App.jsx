@@ -10,8 +10,8 @@ import DbStatusModal from './components/DbStatusModal.jsx';
 import MobileBottomNav from './components/MobileBottomNav.jsx';
 import UploadHub from './components/UploadHub.jsx';
 import MobileDashboardView from './components/MobileDashboardView.jsx';
+import AuthGate from './components/AuthGate.jsx';
 import { Layers, CheckCircle2, UploadCloud, Send, Plus, ShieldCheck, MessageSquare, Bot, Sparkles, BookOpen } from 'lucide-react';
-
 
 export default function App() {
   // Theme State
@@ -28,8 +28,6 @@ export default function App() {
   });
 
   // Main Navigation Tab ('upload' | 'dashboard')
-  // On mobile (< 768px): default to Upload Hub (matching Finku reference)
-  // On desktop (>= 768px): default to Dashboard (Command Center)
   const [currentTab, setCurrentTab] = useState(() => {
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       return 'upload';
@@ -37,9 +35,24 @@ export default function App() {
     return 'dashboard';
   });
 
-  // Currency State (IDR vs USD)
-  const [currency, setCurrency] = useState(() => {
-    return localStorage.getItem('memomeir_currency') || 'IDR';
+  // Currency State (Clean IDR Rupiah)
+  const currency = 'IDR';
+  useEffect(() => {
+    localStorage.setItem('memomeir_currency', 'IDR');
+  }, []);
+
+  // Authentication State (Gmail + Password with JWT Session)
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('memomeir_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [authToken, setAuthToken] = useState(() => {
+    return localStorage.getItem('memomeir_token') || null;
   });
 
   // Data States (Clean Real Data starting from 0)
@@ -55,7 +68,7 @@ export default function App() {
     },
     categoryBreakdown: [],
     paymentMethodStats: {},
-    dbStatus: { engine: 'local_fallback', isPostgres: false }
+    dbStatus: { engine: 'postgres', isPostgres: true }
   });
 
   const [transactions, setTransactions] = useState([]);
@@ -96,23 +109,39 @@ export default function App() {
     localStorage.setItem('memomeir_theme', theme);
   }, [theme]);
 
-  // Sync currency preference
-  useEffect(() => {
-    localStorage.setItem('memomeir_currency', currency);
-  }, [currency]);
-
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  const toggleCurrency = () => {
-    setCurrency(prev => (prev === 'IDR' ? 'USD' : 'IDR'));
-  };
+  // Verify auth session on initial load
+  useEffect(() => {
+    if (!authToken) return;
+    fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${authToken}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.user) {
+          setCurrentUser(data.user);
+          localStorage.setItem('memomeir_user', JSON.stringify(data.user));
+        } else {
+          // Token expired or invalid
+          localStorage.removeItem('memomeir_token');
+          localStorage.removeItem('memomeir_user');
+          setCurrentUser(null);
+          setAuthToken(null);
+        }
+      })
+      .catch(() => {});
+  }, [authToken]);
 
-  // Fetch Financial Stats
+  // Fetch Financial Stats (Scoped strictly to authenticated user)
   const loadStats = useCallback(async () => {
+    if (!authToken) return;
     try {
-      const res = await fetch('/api/stats');
+      const res = await fetch('/api/stats', {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -120,10 +149,11 @@ export default function App() {
     } catch (err) {
       console.error('[Memomeir] Failed to load stats:', err);
     }
-  }, []);
+  }, [authToken]);
 
-  // Fetch Transactions List
+  // Fetch Transactions List (Scoped strictly to authenticated user)
   const loadTransactions = useCallback(async () => {
+    if (!authToken) return;
     try {
       let url = `/api/transactions?limit=100`;
       if (filterType !== 'all') {
@@ -133,7 +163,9 @@ export default function App() {
         url += `&search=${encodeURIComponent(searchQuery.trim())}`;
       }
 
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setTransactions(data.transactions || []);
@@ -141,7 +173,7 @@ export default function App() {
     } catch (err) {
       console.error('[Memomeir] Failed to load transactions:', err);
     }
-  }, [filterType, searchQuery]);
+  }, [filterType, searchQuery, authToken]);
 
   // Fetch WhatsApp Bot Status (Connection & On/Off state)
   const loadWaStatus = useCallback(async () => {
@@ -156,8 +188,10 @@ export default function App() {
     }
   }, []);
 
-  // Initial load
+  // Periodic polling for stats and WA status when authenticated
   useEffect(() => {
+    if (!currentUser || !authToken) return;
+
     loadStats();
     loadTransactions();
     loadWaStatus();
@@ -167,7 +201,7 @@ export default function App() {
       loadStats();
     }, 8000);
     return () => clearInterval(interval);
-  }, [loadStats, loadTransactions, loadWaStatus]);
+  }, [currentUser, authToken, loadStats, loadTransactions, loadWaStatus]);
 
   // Delete transaction
   const handleDeleteTransaction = async id => {
@@ -175,7 +209,10 @@ export default function App() {
       return;
     }
     try {
-      const res = await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/transactions/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
       if (res.ok) {
         showToast(`Transaksi #${id} berhasil dihapus`);
         loadStats();
@@ -184,6 +221,35 @@ export default function App() {
     } catch (err) {
       console.error('[Memomeir] Delete error:', err);
     }
+  };
+
+  const handleLoginSuccess = (user, token) => {
+    setCurrentUser(user);
+    setAuthToken(token);
+    showToast(`Selamat datang, ${user.name}! Akun Anda aktif.`);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('memomeir_token');
+    localStorage.removeItem('memomeir_user');
+    setCurrentUser(null);
+    setAuthToken(null);
+    setStats({
+      summary: {
+        totalBalance: 0,
+        monthlyExpense: 0,
+        monthlyIncome: 0,
+        totalIncome: 0,
+        totalExpense: 0,
+        savingsRate: 0,
+        transactionCount: 0
+      },
+      categoryBreakdown: [],
+      paymentMethodStats: {},
+      dbStatus: { engine: 'postgres', isPostgres: true }
+    });
+    setTransactions([]);
+    showToast('Berhasil keluar dari akun.');
   };
 
   // Callback when transaction is added (via Simulator, Manual Add, or Upload Hub)
@@ -201,7 +267,7 @@ export default function App() {
     loadTransactions();
   };
 
-  // Touch swipe gesture navigation for mobile (Swipe between Upload Hub & Dashboard)
+  // Touch swipe gesture navigation for mobile
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
   const minSwipeDistance = 55;
@@ -230,6 +296,20 @@ export default function App() {
     }
   };
 
+  // =========================================================================
+  // AUTHENTICATION GATE (Gmail + Password Required)
+  // If user is not logged in, show the full-screen AuthGate
+  // =========================================================================
+  if (!currentUser) {
+    return (
+      <AuthGate
+        onLoginSuccess={handleLoginSuccess}
+        theme={theme}
+        toggleTheme={toggleTheme}
+      />
+    );
+  }
+
   return (
     <>
       <div className="app-grid-bg" />
@@ -253,6 +333,7 @@ export default function App() {
                 onOpenSimulator={() => setIsSimulatorOpen(true)}
                 onTransactionAdded={handleTransactionAdded}
                 currency={currency}
+                currentUser={currentUser}
               />
             ) : (
               <MobileDashboardView
@@ -261,7 +342,6 @@ export default function App() {
                 currency={currency}
                 theme={theme}
                 toggleTheme={toggleTheme}
-                toggleCurrency={toggleCurrency}
                 onOpenAddModal={() => setIsAddModalOpen(true)}
                 onOpenUpload={() => setCurrentTab('upload')}
                 onOpenSimulator={() => setIsSimulatorOpen(true)}
@@ -273,6 +353,8 @@ export default function App() {
                 }}
                 currentTab={currentTab}
                 setCurrentTab={setCurrentTab}
+                currentUser={currentUser}
+                onLogout={handleLogout}
               />
             )}
           </div>
@@ -290,12 +372,13 @@ export default function App() {
               theme={theme}
               toggleTheme={toggleTheme}
               currency={currency}
-              toggleCurrency={toggleCurrency}
               onOpenSimulator={() => setIsSimulatorOpen(true)}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onOpenDocsModal={() => setIsDocsModalOpen(true)}
               onOpenDbStatus={() => setIsDbStatusOpen(true)}
               dbStatus={stats.dbStatus}
+              currentUser={currentUser}
+              onLogout={handleLogout}
             />
 
             {currentTab === 'upload' ? (
@@ -304,6 +387,7 @@ export default function App() {
                 onOpenSimulator={() => setIsSimulatorOpen(true)}
                 onTransactionAdded={handleTransactionAdded}
                 currency={currency}
+                currentUser={currentUser}
               />
             ) : (
               <>
@@ -314,101 +398,44 @@ export default function App() {
                       <h1 className="desktop-hero-title">Memomeir • Pencatat Keuangan Otomatis</h1>
                       <span className="desktop-real-badge">
                         <ShieldCheck size={13} style={{ marginRight: 4 }} />
-                        Mode Data Real
+                        Akun: {currentUser.name} ({currentUser.email})
                       </span>
-                      {waStatus?.connected ? (
-                        <span
-                          className="desktop-real-badge"
-                          style={{
-                            backgroundColor: waStatus.config?.enabled !== false ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                            color: waStatus.config?.enabled !== false ? 'var(--income-color)' : 'var(--expense-color)',
-                            borderColor: waStatus.config?.enabled !== false ? 'var(--income-border)' : 'var(--expense-border)',
-                            cursor: 'pointer'
-                          }}
-                          onClick={() => setIsDocsModalOpen(true)}
-                          title="Klik untuk melihat status & panduan WhatsApp"
-                        >
-                          <span
-                            className="status-dot pulse"
-                            style={{
-                              backgroundColor: waStatus.config?.enabled !== false ? '#10B981' : '#EF4444',
-                              marginRight: 6
-                            }}
-                          />
-                          {waStatus.config?.enabled !== false ? 'Bot WA: 🟢 Aktif' : 'Bot WA: 🔴 Mode Tidur'}
-                        </span>
-                      ) : null}
                     </div>
-                    <p className="desktop-hero-desc">
-                      Pusat kendali keuangan harian Anda. Catat pengeluaran dan pemasukan dengan mudah melalui web ini, upload struk belanja, atau cukup kirim chat via bot WhatsApp.
+
+                    <p className="desktop-hero-subtitle">
+                      Pencatatan keuangan pribadi real-time. Setiap transaksi yang Anda catat lewat web atau bot WhatsApp langsung terisolasi di akun Anda.
                     </p>
                   </div>
 
                   <div className="desktop-hero-actions">
                     <button
+                      className="btn btn-secondary cartoon-pill-btn"
+                      onClick={() => setIsGuideOpen(!isGuideOpen)}
+                      title="Pelajari alur cara kerja Memomeir"
+                    >
+                      <BookOpen size={14} />
+                      <span>{isGuideOpen ? 'Tutup Panduan' : 'Cara Kerja'}</span>
+                    </button>
+                    <button
                       className="btn btn-primary cartoon-tactile-btn"
                       onClick={() => setIsAddModalOpen(true)}
-                      title="Catat transaksi manual"
+                      title="Tambah transaksi manual"
                     >
-                      <Plus size={16} strokeWidth={2.6} />
+                      <Plus size={16} />
                       <span>Catat Transaksi</span>
                     </button>
-                    <button
-                      className="btn btn-secondary cartoon-pill-btn"
-                      onClick={() => setCurrentTab('upload')}
-                      title="Buka Smart Upload & Scan Struk"
-                    >
-                      <UploadCloud size={15} strokeWidth={2.4} />
-                      <span>Smart Upload & Scan</span>
-                    </button>
-                    <button
-                      className="btn btn-secondary cartoon-pill-btn"
-                      onClick={() => setIsSimulatorOpen(true)}
-                      title="Coba Simulasi Chat WhatsApp"
-                      style={{ borderColor: '#25D366', color: '#128C7E' }}
-                    >
-                      <MessageSquare size={14} strokeWidth={2.4} style={{ color: '#25D366' }} />
-                      <span>Simulasi Chat WA</span>
-                    </button>
-                    <button
-                      className="btn btn-secondary cartoon-pill-btn"
-                      onClick={() => setIsDocsModalOpen(true)}
-                      title="Panduan Sambungkan Bot WhatsApp"
-                    >
-                      <BookOpen size={14} strokeWidth={2.4} />
-                      <span>Panduan Sambung WA</span>
-                    </button>
-                  </div>
-                </section>
-
-                {/* 3-Step WhatsApp & Web Quick Guide Banner (Collapsible) */}
-                <section className="desktop-guide-banner">
-                  <div
-                    className="desktop-guide-header"
-                    onClick={() => setIsGuideOpen(prev => !prev)}
-                    style={{ cursor: 'pointer', margin: isGuideOpen ? '0 0 14px' : '0' }}
-                  >
-                    <div className="desktop-guide-heading">
-                      <Sparkles size={16} color="#0066FF" />
-                      <span>Cara Praktis Menggunakan Memomeir & WhatsApp</span>
-                      <span className="cartoon-pill-badge" style={{ fontSize: '0.66rem', padding: '2px 8px', marginLeft: 6 }}>
-                        {isGuideOpen ? 'Sembunyikan Panduan ▲' : 'Lihat Panduan 3 Langkah ▼'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                      Tersambung langsung ke database realtime
-                    </div>
                   </div>
 
+                  {/* Collapsible 3-Step Architecture Guide */}
                   {isGuideOpen && (
-                    <div className="desktop-guide-steps" style={{ animation: 'fadeIn 0.2s ease-out' }}>
+                    <div className="desktop-steps-container fade-in">
                       {/* Step 1 */}
                       <div className="desktop-step-item">
                         <div className="desktop-step-badge step-1">1</div>
                         <div className="desktop-step-text-wrap">
-                          <div className="desktop-step-title">Kirim Chat WA / Upload Struk</div>
+                          <div className="desktop-step-title">Kirim Chat atau Foto Struk</div>
                           <div className="desktop-step-desc">
-                            Ketik chat santai seperti <em>"Kopi 25rb qris"</em> ke WhatsApp, atau upload file mutasi & foto struk di web.
+                            Kirim pesan seperti <em>"Kopi Tuku 25rb QRIS"</em> atau kirim foto struk belanjaan langsung ke bot WhatsApp.
                           </div>
                         </div>
                       </div>
@@ -473,7 +500,7 @@ export default function App() {
                 <span>Memomeir • Pencatat Keuangan Harian</span>
               </div>
               <div>
-                <span>Catat keuangan pribadi dengan mudah lewat Web & WhatsApp</span>
+                <span>Akun Anda: {currentUser.name} ({currentUser.email})</span>
               </div>
               <div style={{ color: 'var(--text-muted)' }}>
                 © {new Date().getFullYear()} Memomeir
@@ -494,6 +521,7 @@ export default function App() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onTransactionCreated={handleTransactionAdded}
+        currentUser={currentUser}
       />
 
       <WebhookDocsModal

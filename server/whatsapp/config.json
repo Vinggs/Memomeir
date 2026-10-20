@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "mode": "self_only",
   "ownerPhone": "6281389352752",
   "ownerLid": "149104101474415",
@@ -13,5 +13,7 @@
     "6281389352752@s.whatsapp.net",
     "149104101474415@lid"
   ],
-  "updatedAt": "2026-10-20T04:35:50.601Z"
+  "updatedAt": "2026-10-20T13:47:50.270Z",
+  "enabledAt": "2026-10-20T13:47:50.270Z",
+  "autoOffTriggeredAt": "2026-10-20T13:48:07.403Z"
 }

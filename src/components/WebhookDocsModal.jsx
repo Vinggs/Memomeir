@@ -23,6 +23,9 @@ export default function WebhookDocsModal({ isOpen, onClose }) {
   const origin = window.location.origin;
   const webhookUrl = `${origin}/api/webhook/transaction`;
 
+  const [toggleLoading, setToggleLoading] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+
   const fetchBotStatus = async () => {
     try {
       setRefreshing(true);
@@ -40,11 +43,58 @@ export default function WebhookDocsModal({ isOpen, onClose }) {
 
   useEffect(() => {
     fetchBotStatus();
-    const interval = setInterval(fetchBotStatus, 6000);
+    const interval = setInterval(fetchBotStatus, 4000);
     return () => clearInterval(interval);
   }, []);
 
   const isBotActive = botStatus.config?.enabled !== false;
+  const autoOffAt = botStatus.config?.autoOffAt;
+
+  // Live countdown timer for 2-minute auto-off
+  useEffect(() => {
+    if (!isBotActive || !autoOffAt) {
+      setRemainingSeconds(0);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const diffMs = new Date(autoOffAt).getTime() - Date.now();
+      const secs = Math.max(0, Math.floor(diffMs / 1000));
+      setRemainingSeconds(secs);
+      if (secs === 0) {
+        fetchBotStatus();
+      }
+    };
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000);
+    return () => clearInterval(timer);
+  }, [isBotActive, autoOffAt]);
+
+  const handleToggleBotPower = async () => {
+    try {
+      setToggleLoading(true);
+      const nextState = !isBotActive;
+      const res = await fetch('/api/whatsapp/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: nextState })
+      });
+      if (res.ok) {
+        await fetchBotStatus();
+      }
+    } catch (err) {
+      console.error('Failed to toggle bot power:', err);
+    } finally {
+      setToggleLoading(false);
+    }
+  };
+
+  const formatCountdown = secs => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -136,6 +186,95 @@ export default function WebhookDocsModal({ isOpen, onClose }) {
               <span>Perbarui</span>
             </button>
           </div>
+
+          {/* Power Control & 2-Minute Auto-Off Bar */}
+          {botStatus.state === 'connected' && (
+            <div
+              style={{
+                marginTop: 10,
+                padding: '12px 14px',
+                borderRadius: 14,
+                background: isBotActive ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                border: `1px solid ${isBotActive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 10
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    background: isBotActive ? '#10b981' : '#ef4444',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    flexShrink: 0
+                  }}
+                >
+                  <Power size={16} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
+                      Daya Bot: {isBotActive ? 'AKTIF (ON)' : 'TIDUR (OFF)'}
+                    </span>
+                    {isBotActive && remainingSeconds > 0 && (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          background: '#10b981',
+                          color: '#fff',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4
+                        }}
+                      >
+                        ⏱️ Auto-off dalam {formatCountdown(remainingSeconds)}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                    {isBotActive
+                      ? 'Bot otomatis mati jika sudah 2 menit agar chat pribadi tidak terganggu.'
+                      : 'Bot sedang nonaktif (tidak akan membalas atau mencatat chat).'}
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className={`btn ${isBotActive ? 'btn-secondary' : 'btn-primary'}`}
+                onClick={handleToggleBotPower}
+                disabled={toggleLoading}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: 20,
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  background: isBotActive ? undefined : '#10b981',
+                  borderColor: isBotActive ? undefined : '#10b981'
+                }}
+              >
+                <Power size={13} style={{ marginRight: 6 }} />
+                <span>
+                  {toggleLoading
+                    ? 'Memproses...'
+                    : isBotActive
+                    ? 'Matikan Bot Sekarang'
+                    : 'Nyalakan Bot (2 Menit)'}
+                </span>
+              </button>
+            </div>
+          )}
 
           {/* 2. Security Privacy Banner */}
           <div

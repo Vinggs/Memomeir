@@ -32,13 +32,32 @@ export default function TransactionTable({
   setSearchQuery,
   onDeleteTransaction,
   onOpenAddModal,
-  currency = 'IDR'
+  currency = 'IDR',
+  users = [],
+  selectedUser = 'all'
 }) {
   return (
     <section className="transactions-section">
       <div className="transactions-toolbar">
         <div className="toolbar-title-wrap">
-          <h2 className="toolbar-title">Riwayat Transaksi</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h2 className="toolbar-title">Riwayat Transaksi</h2>
+            {selectedUser && selectedUser !== 'all' && (
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  padding: '3px 9px',
+                  borderRadius: 20,
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  fontWeight: 700,
+                  border: '1px solid var(--border-color)'
+                }}
+              >
+                👤 Profil: {selectedUser}
+              </span>
+            )}
+          </div>
           <span className="toolbar-count">
             {transactions.length} transaksi tercatat
           </span>
@@ -50,7 +69,7 @@ export default function TransactionTable({
             <Search size={14} style={{ color: 'var(--text-muted)' }} />
             <input
               type="text"
-              placeholder="Cari catatan, kategori, atau metode bayar..."
+              placeholder="Cari catatan, kategori, nama, atau metode..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
@@ -109,6 +128,7 @@ export default function TransactionTable({
             <thead>
               <tr>
                 <th>Tanggal & Waktu</th>
+                <th>Anggota</th>
                 <th>Catatan / Keterangan</th>
                 <th>Kategori</th>
                 <th>Metode Bayar</th>
@@ -121,6 +141,10 @@ export default function TransactionTable({
               {transactions.map(tx => {
                 const isIncome = tx.type === 'income';
                 const emoji = getCatEmoji(tx.category);
+                const uName = tx.user_name || 'Farrel';
+                const matchedUser = users.find(u => u.name?.toLowerCase() === uName.toLowerCase());
+                const userColor = matchedUser?.color || (uName.toLowerCase() === 'amel' ? '#ec4899' : '#3b82f6');
+
                 return (
                   <tr key={tx.id}>
                     <td>
@@ -128,6 +152,32 @@ export default function TransactionTable({
                         <span className="tx-date-primary">{formatDateTime(tx.date)}</span>
                         <span className="tx-date-sub">{formatTime(tx.date)}</span>
                       </div>
+                    </td>
+
+                    <td>
+                      <span
+                        className="tag-badge"
+                        style={{
+                          background: `${userColor}15`,
+                          color: userColor,
+                          borderColor: `${userColor}35`,
+                          fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '3px 9px'
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: '50%',
+                            background: userColor
+                          }}
+                        />
+                        {uName}
+                      </span>
                     </td>
 
                     <td>

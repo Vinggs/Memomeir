@@ -28,7 +28,14 @@ const COMMON_PAYMENT_METHODS = [
 ];
 
 
-export default function AddTransactionModal({ isOpen, onClose, onTransactionCreated }) {
+export default function AddTransactionModal({
+  isOpen,
+  onClose,
+  onTransactionCreated,
+  currentUser,
+  users = []
+}) {
+  const [userName, setUserName] = useState(() => (currentUser ? currentUser.name : 'User'));
   const [type, setType] = useState('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(COMMON_CATEGORIES[0]);
@@ -37,6 +44,13 @@ export default function AddTransactionModal({ isOpen, onClose, onTransactionCrea
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 16));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Sync current user name if changed
+  React.useEffect(() => {
+    if (currentUser && currentUser.name) {
+      setUserName(currentUser.name);
+    }
+  }, [currentUser]);
 
   const addNominal = val => {
     const current = parseInt(amount, 10) || 0;
@@ -58,15 +72,20 @@ export default function AddTransactionModal({ isOpen, onClose, onTransactionCrea
       // Clean category to canonical name (before parentheses)
       const cleanCategory = category.split(' (')[0].trim();
 
+      const token = localStorage.getItem('memomeir_token');
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/transactions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           type,
           amount: numAmount,
           category: cleanCategory,
           payment_method: paymentMethod,
           description: description.trim() || (type === 'expense' ? 'Pengeluaran' : 'Pemasukan'),
+          user_name: userName || 'Farrel',
           date: new Date(date).toISOString()
         })
       });
@@ -111,6 +130,59 @@ export default function AddTransactionModal({ isOpen, onClose, onTransactionCrea
               <span>{error}</span>
             </div>
           )}
+
+          {/* Current User Account Identity */}
+          {currentUser ? (
+            <div className="form-group" style={{ marginBottom: 14 }}>
+              <label className="form-label" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Akun Pemilik Transaksi</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', background: 'var(--bg-subtle)', borderRadius: 10, fontSize: '0.84rem', fontWeight: 600 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }} />
+                <span>{currentUser.name}</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                  {currentUser.email} • Pribadi & Terisolasi
+                </span>
+              </div>
+            </div>
+          ) : users.length > 0 ? (
+            <div className="form-group">
+              <label className="form-label">Dicatat Untuk Anggota</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {users.map(u => {
+                  const isSelected = userName === u.name;
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => setUserName(u.name)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 14px',
+                        borderRadius: 20,
+                        border: isSelected ? `2px solid ${u.color || 'var(--accent-blue)'}` : '1px solid var(--border-color)',
+                        background: isSelected ? `${u.color || 'var(--accent-blue)'}18` : 'var(--bg-secondary)',
+                        color: isSelected ? (u.color || 'var(--accent-blue)') : 'var(--text-primary)',
+                        fontWeight: isSelected ? 700 : 500,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <span
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: '50%',
+                          background: u.color || '#3b82f6'
+                        }}
+                      />
+                      <span>{u.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           {/* Type Selector (expense vs income) */}
           <div className="form-group">
