@@ -29,3 +29,4 @@ server/whatsapp/auth_info
 server/whatsapp/status.json
 database/local_transactions.json
 
+.neon
