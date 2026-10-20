@@ -213,57 +213,41 @@ export async function startWhatsAppBot() {
       }
 
       // ==============================================================
-      // SECURITY & PRIVACY VERIFICATION FILTER
-      // Verifikasi: Hanya merespon chat ke Farrel atau room obrolan yang terkunci!
-      // Chat pribadi lain dengan teman/keluarga otomatis diabaikan tanpa intervensi.
-      // Mendukung nomor telepon (@s.whatsapp.net) maupun WhatsApp Multi-Device LID (@lid)
+      // STRICT SECURITY & PRIVACY VERIFICATION FILTER
+      // HANYA respon ruang obrolan Farrel sendiri:
+      // - Nomor HP: 6281389352752@s.whatsapp.net
+      // - WhatsApp Web LID: 149104101474415@lid
+      // Chat dengan kontak lain (Amel, teman, keluarga, dsb) 100% DIBLOKIR & DIABAIKAN!
       // ==============================================================
       const config = loadConfig();
-      const userPhone = sock.user?.id ? sock.user.id.split(':')[0].replace(/[^0-9]/g, '') : '';
-      const userLid = sock.user?.lid ? sock.user.lid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '') : '';
+      const userPhone = sock.user?.id ? sock.user.id.split(':')[0].replace(/[^0-9]/g, '') : '6281389352752';
+      const userLid = sock.user?.lid ? sock.user.lid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '') : '149104101474415';
       const remotePhone = remoteJid.split('@')[0].split(':')[0].replace(/[^0-9]/g, '');
-      const ownerPhone = (config.ownerPhone || '').replace(/[^0-9]/g, '');
-      const ownerLid = (config.ownerLid || '').replace(/[^0-9]/g, '');
+      const ownerPhone = (config.ownerPhone || '6281389352752').replace(/[^0-9]/g, '');
+      const ownerLid = (config.ownerLid || '149104101474415').replace(/[^0-9]/g, '');
 
-      const isSelfPhone = Boolean(userPhone && remotePhone === userPhone);
-      const isSelfLid = Boolean(
-        (userLid && remotePhone === userLid) ||
-        (ownerLid && remotePhone === ownerLid) ||
-        (remoteJid.endsWith('@lid') && userLid && remoteJid.includes(userLid))
-      );
-      const isOwnerPhone = Boolean(ownerPhone && remotePhone === ownerPhone);
+      // Strictly check if this room is Farrel's own self-chat or locked room
+      const isFarrelPhone = Boolean(remotePhone && (remotePhone === userPhone || remotePhone === ownerPhone));
+      const isFarrelLid = Boolean(remotePhone && (remotePhone === userLid || remotePhone === ownerLid));
       const isLockedRoom = Boolean(
         config.lockedRoomJid &&
         (remoteJid.toLowerCase() === config.lockedRoomJid.toLowerCase() ||
          remotePhone === config.lockedRoomJid.split('@')[0].replace(/[^0-9]/g, ''))
-      );
-      const isAllowedNumber = Boolean(
-        config.allowedNumbers &&
-        config.allowedNumbers.map(n => n.replace(/[^0-9]/g, '')).includes(remotePhone)
-      );
-      const isAllowedRoom = Boolean(
-        config.allowedRooms &&
-        config.allowedRooms.map(r => r.toLowerCase()).includes(remoteJid.toLowerCase())
-      );
-      // In WhatsApp multi-device, messages to self from WhatsApp Web have fromMe=true and remoteJid with LID or phone
-      const isFromMeSelf = Boolean(
-        msg.key.fromMe &&
-        (isSelfPhone || isSelfLid || isOwnerPhone || remoteJid.endsWith('@lid') || isLockedRoom)
       );
 
       let isAuthorized = false;
       if (config.mode === 'all') {
         isAuthorized = true;
       } else if (config.mode === 'locked_room') {
-        isAuthorized = isLockedRoom || isSelfPhone || isSelfLid || isFromMeSelf;
+        isAuthorized = isLockedRoom;
       } else {
-        // Default: 'self_only' (hanya chat Farrel / nomor sendiri / room obrolan yang diset)
-        isAuthorized = isSelfPhone || isSelfLid || isOwnerPhone || isAllowedNumber || isLockedRoom || isAllowedRoom || isFromMeSelf;
+        // Default: 'self_only' -> HANYA nomor Farrel atau LID Farrel sendiri!
+        isAuthorized = isFarrelPhone || isFarrelLid || isLockedRoom;
       }
 
-      console.log(`[WA Bot] Chat received from ${remoteJid} (fromMe: ${msg.key.fromMe}, authorized: ${isAuthorized})`);
+      console.log(`[WA Bot] Chat from: ${remoteJid} (remotePhone: ${remotePhone}) -> authorized: ${isAuthorized}`);
 
-      // Jika obrolan tidak terverifikasi (misal chat dengan teman), abaikan sepenuhnya!
+      // Jika obrolan BUKAN ruang obrolan Farrel (misal chat dengan Amel), abaikan 100%!
       if (!isAuthorized) {
         continue;
       }
