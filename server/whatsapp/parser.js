@@ -3,6 +3,8 @@
  * Tailored for Indonesian informal language, slang, abbreviations, and store receipts.
  */
 
+import { parsePushNotification } from '../notification_parser.js';
+
 export function parseChatText(rawText = '') {
   const text = rawText.trim();
   const lower = text.toLowerCase();
@@ -46,7 +48,24 @@ export function parseChatText(rawText = '') {
     return { isCommand: true, command: 'bot_on' };
   }
 
-  // 2. Strict Financial Intent Check
+  // 2. Check if text is a forwarded banking or e-wallet push notification (GoPay, Mandiri, Jago, BCA, dll)
+  if (/(?:berhasil|pembayaran|uang masuk|uang keluar|dana masuk|dana keluar|transaksi berhasil|sebesar|senilai|kamu telah bayar|dikreditkan|diterima|m-transfer)/i.test(lower)) {
+    const notifResult = parsePushNotification({ text });
+    if (notifResult.isValid) {
+      return {
+        isValidTransaction: true,
+        type: notifResult.type,
+        amount: notifResult.amount,
+        category: notifResult.category,
+        payment_method: notifResult.payment_method,
+        merchant: notifResult.merchant,
+        description: notifResult.description || text,
+        date: notifResult.date || new Date().toISOString()
+      };
+    }
+  }
+
+  // 3. Strict Financial Intent Check
   // A message MUST have a financial currency indicator (rp, idr, k, rb, jt) OR an explicit financial action verb / merchant!
   const hasCurrencyIndicator = /(?:rp\.?|idr|\$)\s*\d+|\d+\s*(?:k|rb|ribu|jt|juta)\b|\b\d{1,3}(?:[., ]\d{3})+\b/i.test(lower);
   const hasFinancialKeyword = /\b(beli|jajan|bayar|ongkos|habis|belanja|makan|ngopi|bensin|gaji|transfer|topup|top up|isi saldo|pemasukan|pengeluaran|tf|checkout|pesan|order|struk|qris|biaya|tagihan|sewa|indomaret|alfamart|supermarket|warung|warteg|padang|resto|cafe|kafe|kopi|pulsa|listrik|token|dana|gopay|ovo|shopeepay|cash|tunai|kantin|toko|pasar|ojol|grab|gojek|shopee|tokped|tokopedia)\b/i.test(lower);
@@ -62,6 +81,9 @@ export function parseChatText(rawText = '') {
 
   // 3. Pre-clean Non-Financial Numbers (Times, Dates, Phone Numbers, Measurements)
   let cleanText = lower;
+
+  // Remove trailing currency cents (,00 or .00) common in Indonesian banking
+  cleanText = cleanText.replace(/([.,]00)(?!\d)/g, ' ');
 
   // Remove clock times (e.g. "jam 10.30", "jam 10:30", "pukul 10.30", "10.30 wib", "jam 10")
   cleanText = cleanText.replace(/(?:jam|pukul)\s*[0-2]?[0-9](?:[.:][0-5][0-9])?/gi, ' ');
@@ -177,6 +199,9 @@ export function parseChatText(rawText = '') {
   } else if (/starbucks/i.test(lower)) {
     merchantOrPlace = 'Starbucks';
     detectedCategory = 'Food & Dining';
+  } else if (/solaria/i.test(lower)) {
+    merchantOrPlace = 'Solaria';
+    detectedCategory = 'Food & Dining';
   } else if (/kopi kenangan|tuku|fore|janji jiwa|mixue|chatime/i.test(lower)) {
     merchantOrPlace = 'Kedai Kopi';
     detectedCategory = 'Food & Dining';
@@ -207,9 +232,9 @@ export function parseChatText(rawText = '') {
   if (detectedCategory === 'Miscellaneous') {
     if (detectedType === 'income') {
       detectedCategory = 'Salary';
-    } else if (/kopi|makan|minum|snack|roti|sarapan|lunch|dinner|resto|cafe|nasi|jajan/i.test(lower)) {
+    } else if (/kopi|makan|minum|snack|roti|sarapan|lunch|dinner|resto|cafe|kafe|nasi|jajan/i.test(lower)) {
       detectedCategory = 'Food & Dining';
-    } else if (/bensin|pertamax|pertalite|solar|bbm|parkir|toll|tol|taksi|ojol|ongkos/i.test(lower)) {
+    } else if (/\b(bensin|pertamax|pertalite|solar|bbm|parkir|toll|tol|taksi|ojol|ongkos)\b/i.test(lower)) {
       detectedCategory = 'Transport';
     } else if (/listrik|pln|air|pdam|wifi|pulsa|paket data|iuran|bpjs/i.test(lower)) {
       detectedCategory = 'Utilities';
@@ -234,10 +259,12 @@ export function parseChatText(rawText = '') {
     detectedMethod = 'OVO';
   } else if (/shopeepay|shopee pay/i.test(lower)) {
     detectedMethod = 'ShopeePay';
-  } else if (/dana/i.test(lower)) {
+  } else if (/\bdana\b/i.test(lower) && !/dana\s*(?:masuk|keluar|tabungan|darurat|pensiun)/i.test(lower)) {
     detectedMethod = 'DANA';
   } else if (/mandiri|livin/i.test(lower)) {
     detectedMethod = 'Mandiri Livin';
+  } else if (/jago|bank jago/i.test(lower)) {
+    detectedMethod = 'Bank Jago';
   } else if (/bca|transfer bca/i.test(lower)) {
     detectedMethod = 'BCA Transfer';
   } else if (/bri|bni/i.test(lower)) {

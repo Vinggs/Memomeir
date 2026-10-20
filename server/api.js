@@ -9,30 +9,58 @@ import {
   getDbStatus
 } from './db.js';
 
+import { parsePushNotification } from './notification_parser.js';
+
 const router = express.Router();
 
 /**
- * Normalizes incoming WhatsApp AI Bot payload.
+ * Normalizes incoming WhatsApp AI Bot / Push Notification payload.
  * Supports direct JSON as well as common bot envelope wrappers:
  * { "type": "expense", "amount": 50000, ... }
  * OR { "transaction": { ... } }
- * OR { "data": { ... } }
- * OR { "parsed": { ... } }
+ * OR { "text": "Kamu berhasil bayar Rp15.500 ke QRIS WARTEG BAHARI" }
  */
 function extractTransactionPayload(body) {
   if (!body || typeof body !== 'object') {
     return null;
   }
 
-  // If wrapped in transaction, data, or parsed object
+  // If raw notification text is supplied without structured amount
   const target = body.transaction || body.data || body.parsed || body;
+  const rawText = target.text || target.notif_text || target.message || target.body || '';
 
   let type = target.type || target.transaction_type || target.kind;
   let amount = target.amount || target.nominal || target.value || target.price;
-  let category = target.category || target.kategori || target.tag || 'Uncategorized';
-  let payment_method = target.payment_method || target.metode_pembayaran || target.paymentMethod || target.payment || 'WhatsApp';
+  let category = target.category || target.kategori || target.tag;
+  let payment_method = target.payment_method || target.metode_pembayaran || target.paymentMethod || target.payment;
   let description = target.description || target.deskripsi || target.keterangan || target.notes || target.note || '';
   let date = target.date || target.tanggal || target.timestamp || new Date().toISOString();
+
+  // If no structured amount but has notification text, parse via notification parser
+  if ((!amount || isNaN(Number(amount))) && rawText) {
+    const parsedNotif = parsePushNotification({
+      app: target.app || target.notif_app || target.package || '',
+      title: target.title || target.notif_title || '',
+      text: rawText,
+      package: target.package || target.notif_package || ''
+    });
+
+    if (parsedNotif.isValid) {
+      return {
+        type: parsedNotif.type,
+        amount: parsedNotif.amount,
+        category: category || parsedNotif.category,
+        payment_method: payment_method || parsedNotif.payment_method,
+        description: description || parsedNotif.description,
+        date: date || parsedNotif.date
+      };
+    } else {
+      return {
+        isValid: false,
+        reason: parsedNotif.reason || 'Notification does not contain a financial transaction.'
+      };
+    }
+  }
 
   // Normalize amount if passed as string (e.g. "Rp 45.000" or "45000")
   if (typeof amount === 'string') {
@@ -50,11 +78,11 @@ function extractTransactionPayload(body) {
   }
 
   return {
-    type,
-    amount,
-    category: String(category).trim(),
-    payment_method: String(payment_method).trim(),
-    description: String(description).trim(),
+    type: type || 'expense',
+    amount: amount || 0,
+    category: String(category || 'Miscellaneous').trim(),
+    payment_method: String(payment_method || 'WhatsApp').trim(),
+    description: String(description || rawText).trim(),
     date
   };
 }
@@ -101,10 +129,18 @@ async function handleWebhookPost(req, res) {
 
     const payload = extractTransactionPayload(rawBody);
 
-    if (!payload) {
+    if (!payload || payload.isValid === false) {
+      return res.status(200).json({
+        success: false,
+        ignored: true,
+        message: payload?.reason || 'Non-financial notification ignored.'
+      });
+    }
+
+    if (!payload.amount || payload.amount <= 0) {
       return res.status(400).json({
         success: false,
-        error: 'Could not extract transaction data from request.'
+        error: 'Transaction amount must be greater than 0.'
       });
     }
 
