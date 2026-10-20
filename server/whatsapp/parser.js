@@ -36,6 +36,16 @@ export function parseChatText(rawText = '') {
     return { isCommand: true, command: 'mode_all' };
   }
 
+  // Kata kunci mematikan / menonaktifkan bot (Mode Tidur / Jeda)
+  if (/^(#?off|#?mati|#?matikan|#?stop|#?pause|#?nonaktif|#?tidur|#?jeda|bot off|matikan bot|jeda bot)$/i.test(lower)) {
+    return { isCommand: true, command: 'bot_off' };
+  }
+
+  // Kata kunci menyalakan / mengaktifkan kembali bot
+  if (/^(#?on|#?aktif|#?aktifkan|#?start|#?resume|#?bangun|#?nyalakan|bot on|aktifkan bot|nyalakan bot)$/i.test(lower)) {
+    return { isCommand: true, command: 'bot_on' };
+  }
+
   // 2. Strict Financial Intent Check
   // A message MUST have a financial currency indicator (rp, idr, k, rb, jt) OR an explicit financial action verb / merchant!
   const hasCurrencyIndicator = /(?:rp\.?|idr|\$)\s*\d+|\d+\s*(?:k|rb|ribu|jt|juta)\b|\b\d{1,3}(?:[., ]\d{3})+\b/i.test(lower);

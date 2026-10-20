@@ -29,12 +29,15 @@ if (!fs.existsSync(AUTH_DIR)) {
 function loadConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
-      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      const cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      if (typeof cfg.enabled === 'undefined') cfg.enabled = true;
+      return cfg;
     }
   } catch (err) {
     console.error('[Bot Config] Failed to read config:', err);
   }
   return {
+    enabled: true,
     mode: 'self_only', // 'self_only' | 'locked_room' | 'all'
     ownerPhone: '6281389352752',
     ownerLid: '149104101474415',
@@ -270,6 +273,8 @@ export async function startWhatsAppBot() {
         textMessage.startsWith('🔒 *') ||
         textMessage.startsWith('🔓 *') ||
         textMessage.startsWith('🛡️ *') ||
+        textMessage.startsWith('🔴 *') ||
+        textMessage.startsWith('🟢 *') ||
         textMessage.startsWith('⚠️') ||
         textMessage.startsWith('💡') ||
         textMessage.startsWith('🔍 *Foto') ||
@@ -279,12 +284,17 @@ export async function startWhatsAppBot() {
       }
 
 
-      const isImage = Boolean(msg.message.imageMessage);
+      const isImage = Boolean(msg.message?.imageMessage);
 
       // ==============================================================
       // 1. HANDLE RECEIPT IMAGE SCAN (Foto Struk Belanja)
       // ==============================================================
       if (isImage) {
+        if (config.enabled === false) {
+          console.log('[WA Bot] Foto struk diabaikan karena bot sedang dinonaktifkan (mode tidur).');
+          continue;
+        }
+
         console.log(`[WA Bot] Menerima foto struk dari ${remoteJid}...`);
 
         try {
@@ -364,7 +374,35 @@ export async function startWhatsAppBot() {
 
       // A. Bot Commands
       if (parsed.isCommand) {
-        // 1. Lock room to current chat room
+        // 1. Matikan Bot (Pause / Mode Tidur)
+        if (parsed.command === 'bot_off') {
+          config.enabled = false;
+          saveConfig(config);
+
+          const offReply =
+            `🔴 *Bot Memomeir Dinonaktifkan (Mode Tidur)*\n\n` +
+            `Bot telah dijeda dan *tidak akan mencatat transaksi* ataupun merespon chat santai apa pun.\n\n` +
+            `💡 Ketik *#on* atau *#aktif* kapan saja untuk mengaktifkan bot kembali.`;
+
+          await sock.sendMessage(remoteJid, { text: offReply }, { quoted: msg });
+          continue;
+        }
+
+        // 2. Aktifkan Bot (Resume / Nyalakan)
+        if (parsed.command === 'bot_on') {
+          config.enabled = true;
+          saveConfig(config);
+
+          const onReply =
+            `🟢 *Bot Memomeir Berhasil Diaktifkan!*\n\n` +
+            `Bot sekarang aktif kembali dan siap mencatat pengeluaran atau struk belanja Anda seperti biasa.\n\n` +
+            `💡 Ketik *#off* atau *#mati* jika ingin menonaktifkan bot kembali sewaktu-waktu.`;
+
+          await sock.sendMessage(remoteJid, { text: onReply }, { quoted: msg });
+          continue;
+        }
+
+        // 3. Lock room to current chat room
         if (parsed.command === 'lock_room') {
           config.mode = 'locked_room';
           config.lockedRoomJid = remoteJid;
@@ -384,7 +422,7 @@ export async function startWhatsAppBot() {
           continue;
         }
 
-        // 2. Mode Self (Khusus Farrel / Nomor Sendiri)
+        // 4. Mode Self (Khusus Farrel / Nomor Sendiri)
         if (parsed.command === 'mode_self') {
           config.mode = 'self_only';
           saveConfig(config);
@@ -399,7 +437,7 @@ export async function startWhatsAppBot() {
           continue;
         }
 
-        // 3. Mode All (Semua Chat Pribadi Diizinkan)
+        // 5. Mode All (Semua Chat Pribadi Diizinkan)
         if (parsed.command === 'mode_all') {
           config.mode = 'all';
           saveConfig(config);
@@ -413,7 +451,7 @@ export async function startWhatsAppBot() {
           continue;
         }
 
-        // 4. Status Proteksi & Keamanan Bot
+        // 6. Status Proteksi & Daya Bot
         if (parsed.command === 'bot_status') {
           const modeLabel =
             config.mode === 'locked_room'
@@ -422,14 +460,21 @@ export async function startWhatsAppBot() {
               ? '🔒 Khusus Farrel / Nomor Sendiri'
               : '🔓 Terbuka untuk Semua Chat Pribadi';
 
+          const powerLabel = config.enabled !== false
+            ? '🟢 Aktif (Siap Mencatat)'
+            : '🔴 Nonaktif / Dijeda (Mode Tidur)';
+
           const statusReply =
-            `🛡️ *Status Verifikasi & Keamanan Bot Memomeir*\n\n` +
+            `🛡️ *Status Verifikasi & Daya Bot Memomeir*\n\n` +
+            `• *Status Daya:* ${powerLabel}\n` +
             `• *Mode Keamanan:* ${modeLabel}\n` +
             `• *Pemilik Terdaftar:* ${config.ownerName || 'Farrel'}\n` +
             `• *Nomor Pemilik:* +${ownerPhone || userPhone}\n` +
             `• *Room Terkunci:* ${config.lockedRoomJid || '(Belum dikunci)'}\n` +
             `• *Proteksi Chat Lain:* 🟢 Aktif (Chat selain Farrel diabaikan otomatis)\n\n` +
             `*Perintah Pengaturan Cepat:* \n` +
+            `• *#off*   : Matikan / jeda bot (mode tidur)\n` +
+            `• *#on*    : Aktifkan kembali bot\n` +
             `• *#kunci* : Kunci bot di ruang obrolan ini\n` +
             `• *#self*  : Set khusus nomor Farrel / diri sendiri\n` +
             `• *saldo*  : Cek ringkasan saldo keuangan\n` +
@@ -503,6 +548,8 @@ export async function startWhatsAppBot() {
             `2️⃣ *Kirim Foto Struk Kasir:*\n` +
             `Tinggal foto struk belanja Indomaret/Alfamart/Resto dan kirim ke sini. AI akan membaca total belanja otomatis!\n\n` +
             `3️⃣ *Perintah Cepat:*\n` +
+            `• Ketik *#off* untuk menonaktifkan bot (mode tidur).\n` +
+            `• Ketik *#on* untuk mengaktifkan kembali bot.\n` +
             `• Ketik *saldo* untuk melihat saldo saat ini.\n` +
             `• Ketik *mutasi* untuk melihat 5 transaksi terakhir.\n` +
             `• Ketik *#status* untuk cek proteksi & verifikasi obrolan.\n` +
@@ -512,6 +559,13 @@ export async function startWhatsAppBot() {
           await sock.sendMessage(remoteJid, { text: helpReply }, { quoted: msg });
           continue;
         }
+      }
+
+      // JIKA BOT SEDANG DALAM MODE TIDUR (NONAKTIF / PAUSED):
+      // Abaikan transaksi dan chat santai tanpa membalas atau mencatat!
+      if (config.enabled === false) {
+        console.log('[WA Bot] Pesan diabaikan karena bot sedang dinonaktifkan (mode tidur).');
+        continue;
       }
 
       // B. Process Transaction
