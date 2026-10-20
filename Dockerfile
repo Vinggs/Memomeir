@@ -20,12 +20,17 @@ COPY . .
 # Build frontend production bundle
 RUN npm run build
 
-# Expose default port
+# Hugging Face Spaces runs as user with UID 1000
+RUN useradd -m -u 1000 user || true
+RUN chown -R 1000:1000 /app
+USER 1000
+
+# Default environment
 ENV NODE_ENV=production
-ENV PORT=4000
+ENV PORT=7860
 ENV AUTO_START_BOT=true
 
-EXPOSE 4000
+EXPOSE 7860
 
 # Start Express server & WhatsApp bot
 CMD ["node", "server/server.js"]
