@@ -43,7 +43,7 @@ export default function Navbar({
               Keuangan Harian
             </span>
           </div>
-          <span className="brand-sub">Pencatat Keuangan Pribadi & WhatsApp AI Webhook</span>
+          <span className="brand-sub">Pencatat Keuangan Pribadi & WhatsApp Bot</span>
         </div>
       </div>
 
@@ -65,7 +65,6 @@ export default function Navbar({
         >
           <UploadCloud size={15} />
           <span>Scan Struk & File</span>
-          <span className="cartoon-mini-pill">AI</span>
         </button>
 
         <button
@@ -83,10 +82,10 @@ export default function Navbar({
         <button
           className="status-pill desktop-only"
           onClick={onOpenDbStatus}
-          title="Klik untuk melihat status database PostgreSQL / Local"
+          title="Klik untuk melihat status penyimpanan database"
         >
-          <span className="status-dot pulse" style={{ backgroundColor: isPostgres ? 'var(--income-color)' : '#f59e0b' }} />
-          <span>{isPostgres ? 'PostgreSQL: Aktif' : 'Penyimpanan: Lokal'}</span>
+          <span className="status-dot pulse" style={{ backgroundColor: 'var(--income-color)' }} />
+          <span>{isPostgres ? 'Database: Cloud' : 'Penyimpanan: Aktif'}</span>
         </button>
 
         {/* Currency Switcher */}
@@ -99,13 +98,13 @@ export default function Navbar({
           <span style={{ fontWeight: 800, fontFamily: 'var(--font-mono)' }}>{currency}</span>
         </button>
 
-        {/* Webhook Docs */}
+        {/* WhatsApp Guide */}
         <button
           className="btn btn-secondary cartoon-pill-btn desktop-only"
           onClick={onOpenDocsModal}
-          title="Panduan Sambungan Webhook WhatsApp & API"
+          title="Panduan Cara Menggunakan Bot WhatsApp"
         >
-          <Code2 size={15} />
+          <MessageSquare size={14} style={{ color: '#25D366' }} />
           <span>Panduan WA</span>
         </button>
 

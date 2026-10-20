@@ -357,21 +357,23 @@ export default function CategoryChart({
                       </div>
                     </div>
 
-                    {/* Bar Pillar */}
-                    <div
-                      className="chart-col-bar"
-                      style={{
-                        height: `${heightPercent}%`,
-                        backgroundColor: color
-                      }}
-                    >
-                      <span className="chart-col-pct-tag">{item.percentage}%</span>
+                    {/* Bar Track Area with fixed baseline */}
+                    <div className="chart-bar-track-area">
+                      <div
+                        className="chart-col-bar"
+                        style={{
+                          height: `${heightPercent}%`,
+                          backgroundColor: color
+                        }}
+                      >
+                        <span className="chart-col-pct-tag">{item.percentage}%</span>
+                      </div>
                     </div>
 
-                    {/* Label underneath */}
+                    {/* Dedicated Label Area below baseline axis */}
                     <div className="chart-col-label" title={item.category}>
-                      <span style={{ fontSize: '1.1rem' }}>{emoji}</span>
-                      <span>{item.category}</span>
+                      <span className="chart-col-emoji">{emoji}</span>
+                      <span className="chart-col-name">{item.category}</span>
                     </div>
                   </div>
                 );

@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, MessageSquare, Terminal, Sparkles, CheckCircle2, QrCode, RefreshCw, AlertCircle, Shield } from 'lucide-react';
+import {
+  X,
+  MessageSquare,
+  CheckCircle2,
+  QrCode,
+  RefreshCw,
+  ShieldCheck,
+  Send,
+  Power,
+  Camera,
+  HelpCircle,
+  ChevronDown
+} from 'lucide-react';
 
 export default function WebhookDocsModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
-  const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState('node'); // 'node' | 'curl' | 'python'
   const [botStatus, setBotStatus] = useState({ state: 'checking', message: 'Memeriksa status bot...' });
   const [refreshing, setRefreshing] = useState(false);
+  const [showDevApi, setShowDevApi] = useState(false);
 
   const origin = window.location.origin;
   const webhookUrl = `${origin}/api/webhook/transaction`;
@@ -33,206 +44,341 @@ export default function WebhookDocsModal({ isOpen, onClose }) {
     return () => clearInterval(interval);
   }, []);
 
-  const nodeSnippet = `// Contoh integrasi bot WhatsApp (Baileys / Fonnte / Wablas)
-const response = await fetch("${webhookUrl}", {
-  method: "POST",
-  headers: { 
-    "Content-Type": "application/json",
-    "x-webhook-source": "whatsapp-bot"
-  },
-  body: JSON.stringify({
-    type: "expense",          // 'expense' (pengeluaran) atau 'income' (pemasukan)
-    amount: 30000,            // Angka nominal integer
-    category: "Shopping",     // Kategori transaksi
-    payment_method: "Cash",   // Metode pembayaran
-    description: "Jajan di Indomaret 30k",
-    date: new Date().toISOString()
-  })
-});
-
-const result = await response.json();
-console.log("Transaksi tersimpan:", result);`;
-
-  const curlSnippet = `curl -X POST "${webhookUrl}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "type": "expense",
-    "amount": 30000,
-    "category": "Shopping",
-    "payment_method": "Cash",
-    "description": "Jajan di Indomaret 30k",
-    "date": "${new Date().toISOString()}"
-  }'`;
-
-  const pythonSnippet = `# Python (requests) untuk bot WA
-import requests
-from datetime import datetime
-
-payload = {
-    "type": "expense",
-    "amount": 30000,
-    "category": "Shopping",
-    "payment_method": "Cash",
-    "description": "Jajan di Indomaret 30k",
-    "date": datetime.utcnow().isoformat() + "Z"
-}
-
-response = requests.post("${webhookUrl}", json=payload)
-print("Hasil:", response.json())`;
-
-  const handleCopy = () => {
-    let snippet = nodeSnippet;
-    if (activeTab === 'curl') snippet = curlSnippet;
-    if (activeTab === 'python') snippet = pythonSnippet;
-
-    navigator.clipboard.writeText(snippet);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  const isBotActive = botStatus.config?.enabled !== false;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 680 }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
+        {/* Header */}
         <div className="modal-header">
-          <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
-              <MessageSquare size={16} />
+          <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                background: '#25D366',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FFFFFF'
+              }}
+            >
+              <MessageSquare size={17} />
             </div>
-            <span>Koneksi WhatsApp Bot Memomeir</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                Panduan WhatsApp Bot
+              </div>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                Catat keuangan harian otomatis semudah mengirim chat
+              </div>
+            </div>
           </div>
-          <button className="btn-icon" onClick={onClose}>
+          <button className="btn-icon" onClick={onClose} aria-label="Tutup modal">
             <X size={16} />
           </button>
         </div>
 
-        <div className="modal-body">
-          {/* Live Bot Connection Status Card */}
-          <div style={{ padding: 14, borderRadius: 14, background: botStatus.state === 'connected' ? 'var(--income-bg)' : 'var(--bg-subtle)', border: `1px solid ${botStatus.state === 'connected' ? 'var(--income-border)' : 'var(--border-subtle)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="modal-body" style={{ maxHeight: 'calc(85vh - 120px)', overflowY: 'auto' }}>
+          {/* 1. Live Bot Connection Status Card */}
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 16,
+              background: botStatus.state === 'connected' ? 'var(--income-bg)' : 'var(--bg-subtle)',
+              border: `1px solid ${botStatus.state === 'connected' ? 'var(--income-border)' : 'var(--border-subtle)'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: botStatus.state === 'connected' ? '#059669' : '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF' }}>
-                {botStatus.state === 'connected' ? <CheckCircle2 size={20} /> : <QrCode size={18} />}
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '50%',
+                  background: botStatus.state === 'connected' ? '#059669' : '#25D366',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#FFFFFF',
+                  flexShrink: 0
+                }}
+              >
+                {botStatus.state === 'connected' ? <CheckCircle2 size={22} /> : <QrCode size={19} />}
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                  Status Bot: {botStatus.state === 'connected' ? `🟢 Terhubung (+${botStatus.phone || 'Nomor Anda'})` : botStatus.state === 'qr_ready' ? '🟡 Siap Scan QR di Terminal' : '⚪ Bot Belum Berjalan'}
+                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)' }}>
+                  {botStatus.state === 'connected'
+                    ? `🟢 Bot Terhubung (+${botStatus.phone || '6281389352752'})`
+                    : botStatus.state === 'qr_ready'
+                    ? '🟡 Menunggu Scan QR WhatsApp'
+                    : '⚪ Bot Belum Terhubung'}
                 </div>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-                  {botStatus.message || 'Jalankan "npm run bot" di terminal untuk memulai.'}
+                <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', marginTop: 2 }}>
+                  {botStatus.state === 'connected'
+                    ? `Status Daya: ${isBotActive ? '🟢 Aktif (Siap Catat)' : '🔴 Dijeda (Mode Tidur)'}`
+                    : 'Jalankan "npm run bot" jika ingin menyalakan bot WhatsApp.'}
                 </div>
               </div>
             </div>
 
-            <button className="btn btn-secondary" onClick={fetchBotStatus} disabled={refreshing} style={{ padding: '6px 10px', fontSize: '0.74rem' }}>
-              <RefreshCw size={13} className={refreshing ? 'pulse' : ''} />
-              <span>Cek Status</span>
+            <button
+              className="btn btn-secondary cartoon-pill-btn"
+              onClick={fetchBotStatus}
+              disabled={refreshing}
+              style={{ padding: '6px 12px', fontSize: '0.74rem', flexShrink: 0 }}
+            >
+              <RefreshCw size={12} className={refreshing ? 'pulse' : ''} style={{ marginRight: 4 }} />
+              <span>Perbarui</span>
             </button>
           </div>
 
-          {/* Security & Room Verification Mode Card */}
-          <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.22)', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 8, background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', flexShrink: 0 }}>
-              <Shield size={18} />
+          {/* 2. Security Privacy Banner */}
+          <div
+            style={{
+              marginTop: 12,
+              padding: '12px 14px',
+              borderRadius: 14,
+              background: 'rgba(59, 130, 246, 0.06)',
+              border: '1px solid rgba(59, 130, 246, 0.18)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12
+            }}
+          >
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: '#0066FF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#FFFFFF',
+                flexShrink: 0
+              }}
+            >
+              <ShieldCheck size={18} />
             </div>
-            <div style={{ flex: 1, fontSize: '0.76rem' }}>
-              <div style={{ fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>Proteksi Obrolan & Verifikasi Kamar Chat</span>
-                <span style={{ fontSize: '0.68rem', padding: '1px 7px', borderRadius: 6, background: '#2563EB', color: '#FFFFFF', fontWeight: 600 }}>
-                  {botStatus.config?.mode === 'locked_room' ? '🔒 Room Terkunci' : '🛡️ Khusus Farrel'}
-                </span>
-              </div>
-              <div style={{ color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                Bot hanya merespon obrolan dari/ke Farrel (<strong>+{botStatus.config?.ownerPhone || '6281389352752'}</strong>). Chat pribadi lain dengan teman, keluarga, atau grup WhatsApp otomatis diabaikan tanpa intervensi. Ketik <code>#kunci</code> di chat untuk mengunci bot ke ruang obrolan tersebut.
-              </div>
+            <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary)', lineHeight: 1.45 }}>
+              <strong style={{ color: 'var(--text-primary)' }}>Privasi Chat Terjaga Aman:</strong> Bot hanya merespon chat dari nomor Anda sendiri. Chat pribadi dengan keluarga, teman, atau grup WhatsApp lainnya otomatis diabaikan tanpa gangguan.
             </div>
           </div>
 
-          {/* Live QR Code Display if waiting to scan */}
-          {botStatus.state === 'qr_ready' && botStatus.qrDataUrl && (
-            <div style={{ marginTop: 14, background: '#FFFFFF', padding: 16, borderRadius: 14, border: '2px solid #25D366', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-              <div style={{ color: '#111827', fontWeight: 800, fontSize: '0.95rem', marginBottom: 4 }}>
-                📱 Scan QR Code WhatsApp Langsung dari Layar Ini:
-              </div>
-              <div style={{ color: '#6B7280', fontSize: '0.76rem', marginBottom: 12 }}>
-                Buka WhatsApp di HP ➡️ Perangkat Tertaut ➡️ Tautkan Perangkat, lalu arahkan kamera HP ke sini:
-              </div>
-              <img
-                src={botStatus.qrDataUrl}
-                alt="WhatsApp QR Code"
-                style={{ width: 220, height: 220, borderRadius: 10, border: '1px solid #E5E7EB', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-              />
-              <div style={{ fontSize: '0.72rem', color: '#059669', marginTop: 10, fontWeight: 600 }}>
-                ⚡ Begitu di-scan, bot akan langsung aktif otomatis!
-              </div>
-            </div>
-          )}
-
-          {/* Simple 3-Step Setup Guide */}
+          {/* 3. Cara Pakai (User Friendly Steps) */}
           <div style={{ marginTop: 16 }}>
-            <span className="form-label">3 Langkah Mudah Menghubungkan WhatsApp Anda:</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
-              <div style={{ display: 'flex', gap: 10, background: 'var(--bg-subtle)', padding: 10, borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
-                <span style={{ fontWeight: 800, color: '#0066FF', width: 20 }}>1.</span>
-                <div>Buka terminal baru di folder proyek ini dan jalankan perintah: <code style={{ background: 'var(--bg-card)', padding: '2px 6px', borderRadius: 4, fontWeight: 700 }}>npm run bot</code></div>
+            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Send size={15} color="#0066FF" />
+              <span>Cara Praktis Menggunakan Bot WhatsApp:</span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Step 1 */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'var(--bg-subtle)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start'
+                }}
+              >
+                <div
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    background: '#0066FF',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    flexShrink: 0
+                  }}
+                >
+                  1
+                </div>
+                <div style={{ fontSize: '0.78rem', lineHeight: 1.45 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Buka Chat ke Nomor Sendiri di WhatsApp
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+                    Cari nama kontak Anda sendiri di WhatsApp (fitur <em>"Message yourself"</em>).
+                  </div>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 10, background: 'var(--bg-subtle)', padding: 10, borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
-                <span style={{ fontWeight: 800, color: '#0066FF', width: 20 }}>2.</span>
-                <div>Buka WhatsApp di HP Anda ➡️ <strong>Perangkat Tertaut (Linked Devices)</strong> ➡️ <strong>Tautkan Perangkat</strong>, lalu scan QR Code yang tampil di terminal.</div>
+
+              {/* Step 2 */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'var(--bg-subtle)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start'
+                }}
+              >
+                <div
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    background: '#0066FF',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    flexShrink: 0
+                  }}
+                >
+                  2
+                </div>
+                <div style={{ fontSize: '0.78rem', lineHeight: 1.45 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Ketik Chat Pengeluaran Santai
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+                    Contoh: <code>Kopi 25rb qris</code>, <code>Makan siang warteg 18.000 cash</code>, atau <code>Gaji 7.500.000</code>. Bot akan otomatis mengenali nominal uang dan memasukkannya ke dashboard web ini!
+                  </div>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 10, background: 'var(--bg-subtle)', padding: 10, borderRadius: 10, border: '1px solid var(--border-subtle)', fontSize: '0.78rem' }}>
-                <span style={{ fontWeight: 800, color: '#0066FF', width: 20 }}>3.</span>
-                <div>Selesai! Anda tinggal kirim pesan chat santai seperti <em>"jajan di indomaret 30k"</em> atau foto struk kasir, data langsung tersimpan ke web!</div>
+
+              {/* Step 3 */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'var(--bg-subtle)',
+                  border: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'flex-start'
+                }}
+              >
+                <div
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    background: '#0066FF',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.74rem',
+                    fontWeight: 800,
+                    flexShrink: 0
+                  }}
+                >
+                  3
+                </div>
+                <div style={{ fontSize: '0.78rem', lineHeight: 1.45 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Bisa Kirim Foto Struk Belanja
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: 2 }}>
+                    Tinggal foto struk kasir Indomaret, Alfamart, atau resto dan kirim ke chat WhatsApp. Total belanja akan langsung dihitung otomatis.
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Endpoint address & Format Data for Developers */}
-          <div style={{ marginTop: 14 }}>
-            <span className="form-label">Alamat Endpoint Webhook Lokal:</span>
-            <div className="code-box" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#25D366', fontWeight: 700 }}>POST</span>
-              <span style={{ wordBreak: 'break-all' }}>{webhookUrl}</span>
+          {/* 4. Perintah Cepat Mematikan & Menyalakan Bot */}
+          <div style={{ marginTop: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: 'var(--text-primary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Power size={15} color="#10B981" />
+              <span>Kata Kunci Pengaturan Bot di WhatsApp:</span>
             </div>
-          </div>
 
-          {/* Code Snippets */}
-          <div className="form-group" style={{ marginTop: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="filter-tabs">
-                <button
-                  className={`filter-tab-btn ${activeTab === 'node' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('node')}
-                >
-                  Node.js (Baileys)
-                </button>
-                <button
-                  className={`filter-tab-btn ${activeTab === 'curl' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('curl')}
-                >
-                  cURL
-                </button>
-                <button
-                  className={`filter-tab-btn ${activeTab === 'python' ? 'active' : ''}`}
-                  onClick={() => setActiveTab('python')}
-                >
-                  Python
-                </button>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 10
+              }}
+            >
+              {/* Matikan Bot */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'var(--expense-bg)',
+                  border: '1px solid var(--expense-border)',
+                  fontSize: '0.76rem'
+                }}
+              >
+                <div style={{ fontWeight: 800, color: 'var(--expense-color)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>🔴 Mematikan Bot</span>
+                </div>
+                <div style={{ marginTop: 4, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Ketik <strong>#off</strong> atau <strong>matikan bot</strong>. Bot akan tidur dan tidak akan membalas atau mencatat transaksi apa pun.
+                </div>
               </div>
 
-              <button className="btn btn-secondary" onClick={handleCopy} style={{ padding: '4px 10px', fontSize: '0.74rem' }}>
-                {copied ? <Check size={12} color="#25D366" /> : <Copy size={12} />}
-                <span>{copied ? 'Tersalin!' : 'Salin Kode'}</span>
-              </button>
+              {/* Aktifkan Bot */}
+              <div
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 12,
+                  background: 'var(--income-bg)',
+                  border: '1px solid var(--income-border)',
+                  fontSize: '0.76rem'
+                }}
+              >
+                <div style={{ fontWeight: 800, color: 'var(--income-color)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>🟢 Mengaktifkan Kembali</span>
+                </div>
+                <div style={{ marginTop: 4, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                  Ketik <strong>#on</strong> atau <strong>aktifkan bot</strong>. Bot akan bangun dan siap mencatat pengeluaran Anda kembali.
+                </div>
+              </div>
             </div>
-
-            <pre className="code-box" style={{ marginTop: 8, maxHeight: 150, fontSize: '0.74rem' }}>
-              {activeTab === 'node' && nodeSnippet}
-              {activeTab === 'curl' && curlSnippet}
-              {activeTab === 'python' && pythonSnippet}
-            </pre>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-            <button className="btn btn-primary cartoon-pill-btn" onClick={onClose}>
+          {/* 5. Optional Developer Webhook Section (Collapsed by default) */}
+          <div style={{ marginTop: 18, borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+            <button
+              onClick={() => setShowDevApi(!showDevApi)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'var(--text-muted)',
+                fontSize: '0.74rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              <span>Info Teknis API Webhook (Khusus Pengembang)</span>
+              <ChevronDown size={13} style={{ transform: showDevApi ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </button>
+
+            {showDevApi && (
+              <div style={{ marginTop: 10, padding: 10, borderRadius: 10, background: 'var(--bg-subtle)', fontSize: '0.74rem' }}>
+                <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>Endpoint: <code>POST {webhookUrl}</code></div>
+                <div style={{ color: 'var(--text-muted)' }}>Format data JSON: <code>&#123; type, amount, category, payment_method, description &#125;</code></div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer Action */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
+            <button className="btn btn-primary cartoon-pill-btn" onClick={onClose} style={{ padding: '8px 22px' }}>
               Mengerti & Siap Pakai
             </button>
           </div>
@@ -241,5 +387,3 @@ print("Hasil:", response.json())`;
     </div>
   );
 }
-
-

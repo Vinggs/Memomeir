@@ -417,9 +417,9 @@ export default function App() {
                       <div className="desktop-step-item">
                         <div className="desktop-step-badge step-2">2</div>
                         <div className="desktop-step-text-wrap">
-                          <div className="desktop-step-title">AI Mengenali Otomatis</div>
+                          <div className="desktop-step-title">Dikenali Otomatis</div>
                           <div className="desktop-step-desc">
-                            Sistem otomatis mengekstrak nominal uang, kategori (Makanan, Transport, dll), dan metode pembayaran.
+                            Sistem otomatis membaca nominal uang, kategori (Makanan, Transport, dll), dan metode pembayaran.
                           </div>
                         </div>
                       </div>
@@ -470,13 +470,13 @@ export default function App() {
             <footer className="app-footer">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Layers size={14} />
-                <span>Memomeir • Aplikasi Pencatat Keuangan Otomatis</span>
+                <span>Memomeir • Pencatat Keuangan Harian</span>
               </div>
               <div>
-                <span>Database: <code>transactions</code> (Mode Data Real)</span>
+                <span>Catat keuangan pribadi dengan mudah lewat Web & WhatsApp</span>
               </div>
-              <div>
-                <span>Webhook WhatsApp: <code>POST /api/webhook/transaction</code></span>
+              <div style={{ color: 'var(--text-muted)' }}>
+                © {new Date().getFullYear()} Memomeir
               </div>
             </footer>
           </div>

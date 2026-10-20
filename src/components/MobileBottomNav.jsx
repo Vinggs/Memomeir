@@ -58,12 +58,12 @@ export default function MobileBottomNav({
           </button>
         </div>
 
-        {/* Tab 3: WhatsApp AI Bot */}
+        {/* Tab 3: WhatsApp Bot */}
         <button
           className="mobile-nav-item"
           onClick={onOpenSimulator}
-          title="WhatsApp AI Webhook Simulator"
-          aria-label="WhatsApp AI Bot"
+          title="Simulasi WhatsApp Bot"
+          aria-label="WhatsApp Bot"
         >
           <div className="mobile-nav-icon-wrap">
             <Send size={19} strokeWidth={1.9} />

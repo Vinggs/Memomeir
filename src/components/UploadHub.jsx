@@ -376,11 +376,11 @@ export default function UploadHub({
         <div className="finku-dashed-paste-box">
           <div className="finku-dashed-header">
             <span className="finku-dashed-title">Atau, tulis catatan pengeluaran santai</span>
-            <span className="finku-badge-new">AI Pintar</span>
+            <span className="finku-badge-new">Praktis</span>
           </div>
 
           <p className="finku-dashed-desc">
-            Tulis teks bebas layaknya chat biasa. AI Memomeir akan otomatis mendeteksi nominal, kategori, dan metode pembayaran.
+            Tulis teks bebas seperti biasa. Sistem otomatis mendeteksi nominal, kategori, dan metode pembayaran.
           </p>
 
           <div className="finku-paste-input-area">

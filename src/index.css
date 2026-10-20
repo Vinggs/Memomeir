@@ -1297,13 +1297,14 @@ body {
 }
 
 /* 2. VISUAL BAR CHART VIEW WITH FLOATING TOOLTIPS */
+/* 2. VISUAL BAR CHART VIEW WITH FLOATING TOOLTIPS */
 .chart-container-visual {
-  height: 220px;
+  min-height: 240px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  gap: 22px;
-  padding: 36px 16px 10px;
+  gap: 28px;
+  padding: 30px 16px 14px;
   border-bottom: 1px solid var(--border-subtle);
   overflow-x: auto;
 }
@@ -1312,15 +1313,23 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  height: 100%;
-  justify-content: flex-end;
   position: relative;
-  min-width: 52px;
-  max-width: 80px;
+  min-width: 64px;
+  max-width: 96px;
+}
+
+.chart-bar-track-area {
+  height: 125px;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+  border-bottom: 2px solid var(--border-medium);
 }
 
 .chart-col-bar {
-  width: 48px;
+  width: 50px;
   border-radius: 8px 8px 0 0;
   background: #0066FF;
   cursor: pointer;
@@ -1329,18 +1338,19 @@ body {
 }
 
 .chart-col-bar:hover {
-  transform: scaleY(1.04);
-  filter: brightness(1.1);
+  transform: scaleY(1.03);
+  filter: brightness(1.08);
 }
 
 .chart-col-pct-tag {
   position: absolute;
-  top: -22px;
+  top: -24px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  white-space: nowrap;
 }
 
 /* Floating Tooltip positioned cleanly ABOVE the bar */
@@ -1389,19 +1399,28 @@ body {
 }
 
 .chart-col-label {
-  margin-top: 10px;
-  font-size: 0.74rem;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+
+.chart-col-emoji {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.chart-col-name {
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-secondary);
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 78px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
+  max-width: 86px;
 }
 
 /* Category Progress Bars (List View) */

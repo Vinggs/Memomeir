@@ -289,29 +289,7 @@ export default function WhatsAppSimulatorModal({ isOpen, onClose, onTransactionA
             </div>
           )}
 
-          {/* Collapsible Technical Details for Developers */}
-          <div style={{ marginTop: 14 }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => setShowJsonDetails(prev => !prev)}
-              style={{ fontSize: '0.74rem', width: '100%', justifyContent: 'space-between', padding: '6px 10px' }}
-            >
-              <span>{showJsonDetails ? 'Sembunyikan Data Teknis Webhook' : 'Lihat Data Teknis Webhook (POST JSON)'}</span>
-              {showJsonDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
 
-            {showJsonDetails && (
-              <div style={{ marginTop: 8 }}>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Endpoint: <code>POST /api/webhook/transaction</code>
-                </div>
-                <pre className="code-box" style={{ fontSize: '0.72rem', maxHeight: 150 }}>
-                  {JSON.stringify(parseChatToPayload(chatInput), null, 2)}
-                </pre>
-              </div>
-            )}
-          </div>
 
           {/* Footer Actions */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
