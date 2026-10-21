@@ -15,7 +15,15 @@ export function parsePushNotification({ app = '', title = '', text = '', package
 
   // 1. Detect Payment Method & App Source
   let paymentMethod = 'Lainnya';
-  if (lowerApp.includes('gojek') || lowerApp.includes('gopay') || lower.includes('gopay') || lower.includes('go-pay')) {
+  if (lowerApp.includes('seabank') || lower.includes('seabank')) {
+    paymentMethod = 'SeaBank';
+  } else if (lowerApp.includes('bibit') || lower.includes('bibit')) {
+    paymentMethod = 'Bibit';
+  } else if (lowerApp.includes('paypal') || lower.includes('paypal')) {
+    paymentMethod = 'PayPal';
+  } else if (lowerApp.includes('merchant') || lower.includes('gopay merchant')) {
+    paymentMethod = 'GoPay Merchant';
+  } else if (lowerApp.includes('gojek') || lowerApp.includes('gopay') || lower.includes('gopay') || lower.includes('go-pay')) {
     paymentMethod = 'GoPay';
   } else if (lowerApp.includes('mandiri') || lowerApp.includes('livin') || lower.includes('mandiri') || lower.includes('livin')) {
     paymentMethod = 'Mandiri Livin';
@@ -62,29 +70,26 @@ export function parsePushNotification({ app = '', title = '', text = '', package
 
   // 3. Pre-clean text: Remove trailing currency cents (,00 or .00) common in Indonesian banking
   // e.g. "Rp 25.000,00" -> "Rp 25.000"
-  const sanitizedText = text.replace(/([.,]00)(?!\d)/g, '');
-  const sanitizedTitle = title.replace(/([.,]00)(?!\d)/g, '');
+  const sanitizedCombined = combinedText.replace(/([.,]00)(?!\d)/g, '');
 
   // 4. Extract Monetary Amount
   let amount = 0;
 
-  // Pattern 1: Explicit "Rp" or "IDR" (e.g. "Rp15.500", "Rp 16.700", "Rp. 50.000", "Rp 15 500")
-  const rpMatch = sanitizedText.match(/(?:rp\.?|idr)\s*(\d{1,3}(?:[., ]\d{3})+|\d+)/i) ||
-                  sanitizedTitle.match(/(?:rp\.?|idr)\s*(\d{1,3}(?:[., ]\d{3})+|\d+)/i);
-
+  // Pattern 1: Explicit "Rp" or "IDR" (e.g. "Rp15.500", "Rp 16.700", "Rp. 50.000", "Rp 15 500", "+Rp10.000", "-Rp50.000")
+  const rpMatch = sanitizedCombined.match(/(?:rp\.?|idr)\s*([+-]?\s*\d{1,3}(?:[., ]\d{3})+|\d+)/i);
   if (rpMatch) {
-    const rawNum = rpMatch[1].replace(/[., ]/g, '');
+    const rawNum = rpMatch[1].replace(/[., + -]/g, '');
     const parsed = parseInt(rawNum, 10);
     if (!isNaN(parsed) && parsed > 0) {
       amount = parsed;
     }
   }
 
-  // Pattern 2: "sebesar 50.000", "sebesar Rp...", "senilai Rp..."
+  // Pattern 2: "sebesar 50.000", "senilai Rp...", "jumlah Rp...", "total Rp..."
   if (!amount) {
-    const sebesarMatch = sanitizedText.match(/(?:sebesar|senilai)\s*(?:rp\.?)?\s*(\d{1,3}(?:[., ]\d{3})+|\d+)/i);
+    const sebesarMatch = sanitizedCombined.match(/(?:sebesar|senilai|nominal|jumlah|total)\s*(?:rp\.?)?\s*([+-]?\s*\d{1,3}(?:[., ]\d{3})+|\d+)/i);
     if (sebesarMatch) {
-      const rawNum = sebesarMatch[1].replace(/[., ]/g, '');
+      const rawNum = sebesarMatch[1].replace(/[., + -]/g, '');
       const parsed = parseInt(rawNum, 10);
       if (!isNaN(parsed) && parsed > 0) {
         amount = parsed;
@@ -94,11 +99,11 @@ export function parsePushNotification({ app = '', title = '', text = '', package
 
   // Pattern 3: Standard thousand-separated digits (e.g. "15.500" or "1.500.000")
   if (!amount) {
-    const thousandMatch = sanitizedText.match(/\b(\d{1,3}(?:[.,]\d{3})+)\b/);
+    const thousandMatch = sanitizedCombined.match(/\b(\d{1,3}(?:[.,]\d{3})+)\b/);
     if (thousandMatch) {
       const rawNum = thousandMatch[1].replace(/[.,]/g, '');
       const parsed = parseInt(rawNum, 10);
-      if (!isNaN(parsed) && parsed >= 1000) {
+      if (!isNaN(parsed) && parsed >= 100) {
         amount = parsed;
       }
     }

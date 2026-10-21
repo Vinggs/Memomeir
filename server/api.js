@@ -49,7 +49,27 @@ function extractTransactionPayload(body) {
 
   // If raw notification text is supplied without structured amount
   const target = body.transaction || body.data || body.parsed || body;
-  const rawText = target.text || target.notif_text || target.message || target.body || '';
+  
+  // Combine all possible text fields sent by MacroDroid / notification forwarders
+  const rawTextParts = [
+    target.text,
+    target.notif_text,
+    target.message,
+    target.notif_message,
+    target.notification,
+    target.notification_text,
+    target.content,
+    target.body,
+    target.desc,
+    target.description,
+    target.subtext,
+    target.notif_subtext,
+    target.ticker,
+    target.notif_ticker
+  ].filter(p => typeof p === 'string' && p.trim().length > 0);
+
+  const rawText = rawTextParts.join(' ') || (typeof body === 'string' ? body : '');
+  const titleText = target.title || target.notif_title || '';
 
   let type = target.type || target.transaction_type || target.kind;
   let amount = target.amount || target.nominal || target.value || target.price;
@@ -60,11 +80,11 @@ function extractTransactionPayload(body) {
   let user_id = target.user_id || target.userId;
   let user_name = target.user_name || target.user || target.member || target.sender_name || 'Farrel';
 
-  // If no structured amount but has notification text, parse via notification parser
-  if ((!amount || isNaN(Number(amount))) && rawText) {
+  // If no structured amount but has notification text or title, parse via notification parser
+  if ((!amount || isNaN(Number(amount))) && (rawText || titleText)) {
     const parsedNotif = parsePushNotification({
       app: target.app || target.notif_app || target.package || '',
-      title: target.title || target.notif_title || '',
+      title: titleText,
       text: rawText,
       package: target.package || target.notif_package || ''
     });
