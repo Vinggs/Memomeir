@@ -193,8 +193,8 @@ export default function AuthGate({
       {/* Top Bar for Auth Screen */}
       <header className="auth-gate-header">
         <div className="auth-gate-brand">
-          <div className="brand-logo-mark" style={{ width: 34, height: 34 }}>
-            <Layers size={18} strokeWidth={2.5} />
+          <div className="brand-logo-mark brand-logo-img-wrap" style={{ width: 36, height: 36 }}>
+            <img src="/logo.png" alt="Memomeir Logo" className="brand-logo-img" />
           </div>
           <div>
             <span className="brand-title" style={{ fontSize: '1.05rem' }}>Memomeir</span>

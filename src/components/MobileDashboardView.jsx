@@ -111,8 +111,8 @@ export default function MobileDashboardView({
       {/* 1. Sleek Mobile App Bar */}
       <header className="mobile-app-bar">
         <div className="mobile-brand-left">
-          <div className="mobile-logo-mark">
-            <Layers size={18} strokeWidth={2.4} />
+          <div className="mobile-logo-mark mobile-logo-img-wrap">
+            <img src="/logo.png" alt="Memomeir" className="brand-logo-img" />
           </div>
           <div>
             <div className="mobile-brand-title">

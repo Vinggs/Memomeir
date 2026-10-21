@@ -58,12 +58,12 @@ export default function Navbar({
     <header className="top-nav">
       <div className="brand-section">
         <div
-          className="brand-logo-mark"
+          className="brand-logo-mark brand-logo-img-wrap"
           title="Memomeir Financial OS"
           onClick={() => setCurrentTab('dashboard')}
           style={{ cursor: 'pointer' }}
         >
-          <Layers size={20} strokeWidth={2.4} />
+          <img src="/logo.png" alt="Memomeir Logo" className="brand-logo-img" />
         </div>
         <div className="brand-title-wrap">
           <div className="brand-title" onClick={() => setCurrentTab('dashboard')} style={{ cursor: 'pointer' }}>

@@ -795,6 +795,39 @@ body {
   flex-shrink: 0;
 }
 
+.brand-logo-img-wrap {
+  background: transparent !important;
+  border-radius: 50% !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+}
+
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.mobile-logo-img-wrap {
+  background: transparent !important;
+  border-radius: 50% !important;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+}
+
+.desktop-hero-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+
 .brand-title {
   font-size: 1.15rem;
   font-weight: 800;
