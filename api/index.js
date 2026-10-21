@@ -9,9 +9,25 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
-app.use(express.json({ limit: '25mb' }));
+
+// Parse JSON with verify callback to capture raw string if JSON parsing fails
+app.use(express.json({
+  limit: '25mb',
+  verify: (req, res, buf, encoding) => {
+    req.rawBufferString = buf ? buf.toString(encoding || 'utf8') : '';
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 app.use(express.text({ type: '*/*', limit: '25mb' }));
+
+// Gracefully recover if MacroDroid sent plain text with Content-Type: application/json
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400) {
+    req.body = { text: req.rawBufferString || err.body || '' };
+    return next();
+  }
+  next(err);
+});
 
 // Serverless DB lazy initialization
 let dbInitPromise = null;
