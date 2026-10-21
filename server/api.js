@@ -35,6 +35,14 @@ const router = express.Router();
  * OR { "text": "Kamu berhasil bayar Rp15.500 ke QRIS WARTEG BAHARI" }
  */
 function extractTransactionPayload(body) {
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      body = { text: body };
+    }
+  }
+
   if (!body || typeof body !== 'object') {
     return null;
   }
@@ -118,9 +126,17 @@ function extractTransactionPayload(body) {
  */
 async function handleWebhookPost(req, res) {
   try {
-    const rawBody = req.body;
+    let rawBody = req.body;
 
-    if (!rawBody || Object.keys(rawBody).length === 0) {
+    if (typeof rawBody === 'string') {
+      try {
+        rawBody = JSON.parse(rawBody);
+      } catch {
+        rawBody = { text: rawBody };
+      }
+    }
+
+    if (!rawBody || (typeof rawBody === 'object' && Object.keys(rawBody).length === 0)) {
       return res.status(400).json({
         success: false,
         error: 'Empty request body. Expected JSON payload with type, amount, category, payment_method, description, date.',
