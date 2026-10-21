@@ -2157,8 +2157,8 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: 18px;
-  padding: 16px 22px;
-  margin-bottom: 14px;
+  padding: 18px 24px;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2169,21 +2169,22 @@ body {
 .desktop-hero-content {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 .desktop-hero-title {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .desktop-real-badge {
   display: inline-flex;
   align-items: center;
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 600;
   padding: 3px 10px;
   border-radius: 9999px;
   background: #ECFDF5;
@@ -2196,6 +2197,16 @@ body {
   background: rgba(5, 150, 105, 0.2);
   color: #34D399;
   border-color: rgba(5, 150, 105, 0.35);
+}
+
+.desktop-hero-subtitle {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 640px;
+  margin: 0;
+  letter-spacing: -0.005em;
+  font-weight: 400;
 }
 
 .desktop-hero-desc {

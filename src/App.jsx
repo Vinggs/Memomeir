@@ -395,7 +395,7 @@ export default function App() {
                 <section className="desktop-hero-banner">
                   <div className="desktop-hero-content">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <h1 className="desktop-hero-title">Memomeir • Pencatat Keuangan Otomatis</h1>
+                      <h1 className="desktop-hero-title">Memomeir</h1>
                       <span className="desktop-real-badge">
                         <ShieldCheck size={13} style={{ marginRight: 4 }} />
                         Akun: {currentUser.name} ({currentUser.email})
