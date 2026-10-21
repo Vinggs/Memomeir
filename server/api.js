@@ -9,7 +9,9 @@ import {
   getDbStatus,
   getUsers,
   createUser,
-  deleteUser
+  deleteUser,
+  logWebhook,
+  getWebhookLogs
 } from './db.js';
 
 import {
@@ -186,6 +188,7 @@ async function handleWebhookPost(req, res) {
     const payload = extractTransactionPayload(rawBody);
 
     if (!payload || payload.isValid === false) {
+      await logWebhook({ rawBody, headers: req.headers, result: { ignored: true, reason: payload?.reason || 'Non-financial' } });
       return res.status(200).json({
         success: false,
         ignored: true,
@@ -194,6 +197,7 @@ async function handleWebhookPost(req, res) {
     }
 
     if (!payload.amount || payload.amount <= 0) {
+      await logWebhook({ rawBody, headers: req.headers, error: 'Amount <= 0' });
       return res.status(400).json({
         success: false,
         error: 'Transaction amount must be greater than 0.'
@@ -220,6 +224,8 @@ async function handleWebhookPost(req, res) {
       method: recordedTransaction.payment_method
     });
 
+    await logWebhook({ rawBody, headers: req.headers, result: recordedTransaction });
+
     return res.status(201).json({
       success: true,
       message: "Transaction inserted directly into 'transactions' table successfully.",
@@ -228,6 +234,7 @@ async function handleWebhookPost(req, res) {
     });
   } catch (err) {
     console.error('[Memomeir Webhook] Error processing transaction:', err);
+    await logWebhook({ rawBody: req.body, headers: req.headers, error: err.message });
     return res.status(err.status || 500).json({
       success: false,
       error: err.message || 'Internal server error while inserting transaction.',
@@ -239,6 +246,16 @@ async function handleWebhookPost(req, res) {
 // Support both endpoint paths for convenience
 router.post('/webhook/transaction', handleWebhookPost);
 router.post('/webhook', handleWebhookPost);
+
+// Diagnostic logs endpoint
+router.get('/webhook/logs', async (req, res) => {
+  try {
+    const logs = await getWebhookLogs(20);
+    res.json({ count: logs.length, logs });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * GET /api/webhook/transaction

@@ -595,3 +595,44 @@ export function getDbStatus() {
     }
   };
 }
+
+export async function logWebhook({ rawBody, headers, result, error }) {
+  if (dbMode === 'postgres' && pgPool) {
+    try {
+      await pgPool.query(`
+        CREATE TABLE IF NOT EXISTS webhook_logs (
+          id BIGSERIAL PRIMARY KEY,
+          raw_body TEXT,
+          headers TEXT,
+          result TEXT,
+          error TEXT,
+          created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      await pgPool.query(
+        `INSERT INTO webhook_logs (raw_body, headers, result, error) VALUES ($1, $2, $3, $4)`,
+        [
+          typeof rawBody === 'object' ? JSON.stringify(rawBody) : String(rawBody || ''),
+          typeof headers === 'object' ? JSON.stringify(headers) : String(headers || ''),
+          typeof result === 'object' ? JSON.stringify(result) : String(result || ''),
+          error ? String(error) : null
+        ]
+      );
+    } catch (err) {
+      console.error('[Memomeir DB] Failed logging webhook:', err.message);
+    }
+  }
+}
+
+export async function getWebhookLogs(limit = 10) {
+  if (dbMode === 'postgres' && pgPool) {
+    try {
+      const res = await pgPool.query(`SELECT * FROM webhook_logs ORDER BY created_at DESC LIMIT $1`, [limit]);
+      return res.rows;
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
