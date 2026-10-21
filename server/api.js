@@ -11,7 +11,8 @@ import {
   createUser,
   deleteUser,
   logWebhook,
-  getWebhookLogs
+  getWebhookLogs,
+  getPool
 } from './db.js';
 
 import {
@@ -205,13 +206,32 @@ async function handleWebhookPost(req, res) {
     }
 
     // Dynamic user matching (from user_id, phone, sender, or username)
+    let matchedUser = null;
     const lookupKey = rawBody.user_id || rawBody.phone || rawBody.sender || payload.user_name;
     if (lookupKey) {
-      const matched = await findUserByPhoneOrName(lookupKey);
-      if (matched) {
-        payload.user_id = matched.id;
-        payload.user_name = matched.name;
+      matchedUser = await findUserByPhoneOrName(lookupKey);
+    }
+
+    // If no specific match or matched default seeded 'farrel', prefer primary registered user (e.g. Google user)
+    if (!matchedUser || matchedUser.id === 'farrel') {
+      const pool = getPool();
+      if (pool) {
+        try {
+          const primaryRes = await pool.query(
+            "SELECT id, name, email FROM users WHERE email IS NOT NULL AND email != '' ORDER BY created_at DESC LIMIT 1"
+          );
+          if (primaryRes.rows.length > 0) {
+            matchedUser = primaryRes.rows[0];
+          }
+        } catch (e) {
+          console.warn('[Webhook User Match Warning]:', e.message);
+        }
       }
+    }
+
+    if (matchedUser) {
+      payload.user_id = matchedUser.id;
+      payload.user_name = matchedUser.name;
     }
 
     // Insert into 'transactions' table
