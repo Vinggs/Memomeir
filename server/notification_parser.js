@@ -71,6 +71,7 @@ export function parsePushNotification({ app = '', title = '', text = '', package
   // 3. Pre-clean text: Remove trailing currency cents (,00 or .00) common in Indonesian banking
   // e.g. "Rp 25.000,00" -> "Rp 25.000"
   const sanitizedCombined = combinedText.replace(/([.,]00)(?!\d)/g, '');
+  const sanitizedText = sanitizedCombined;
 
   // 4. Extract Monetary Amount
   let amount = 0;
@@ -121,9 +122,9 @@ export function parsePushNotification({ app = '', title = '', text = '', package
   let merchant = '';
 
   // Match "ke QRIS <Merchant>", "ke <Merchant>", or "di <Merchant>"
-  const merchantMatch = sanitizedText.match(/(?:ke\s+qris|ke|di)\s+(?:qris\s+)?([A-Za-z0-9\s&'.-]+?)(?:\s+(?:berhasil|sukses|via|menggunakan|\.|$))/i);
+  const merchantMatch = sanitizedText.match(/(?:ke\s+qris|ke|di)\s+(?:qris\s+)?([A-Za-z0-9\s&',.-]+?)(?:\s*(?:berhasil|sukses|via|menggunakan)|\.|$)/i);
   if (merchantMatch && merchantMatch[1].trim().length > 1) {
-    merchant = merchantMatch[1].trim().replace(/^qris\s+/i, '');
+    merchant = merchantMatch[1].trim().replace(/^qris\s+/i, '').replace(/[.,]+$/, '');
   }
 
   // Match Jago "untuk pembayaran ... di <Merchant>"
@@ -167,7 +168,7 @@ export function parsePushNotification({ app = '', title = '', text = '', package
   const cleanMerchant = merchant ? merchant.replace(/[.]+$/, '').trim() : '';
   const finalDescription = cleanMerchant
     ? `[${paymentMethod}] ${cleanMerchant}`
-    : `[${paymentMethod}] ${text.slice(0, 80)}`;
+    : `[${paymentMethod}] ${(text || combinedText).slice(0, 80)}`;
 
   return {
     isValid: true,
@@ -177,7 +178,7 @@ export function parsePushNotification({ app = '', title = '', text = '', package
     payment_method: paymentMethod,
     merchant: cleanMerchant,
     description: finalDescription,
-    rawText: text,
+    rawText: text || combinedText,
     date: new Date().toISOString()
   };
 }
