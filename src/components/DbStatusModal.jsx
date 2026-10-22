@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Database, CheckCircle, RefreshCcw, AlertTriangle } from 'lucide-react';
 
-export default function DbStatusModal({ isOpen, onClose, dbStatus, onResetSeed }) {
+export default function DbStatusModal({ isOpen, onClose, dbStatus, onResetSeed, currentUser, onLogout }) {
   const [resetting, setResetting] = useState(false);
   const [resetDone, setResetDone] = useState(false);
 
@@ -127,7 +127,37 @@ export default function DbStatusModal({ isOpen, onClose, dbStatus, onResetSeed }
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          {currentUser && (
+            <div className="form-group" style={{ marginTop: 14 }}>
+              <label className="form-label">Akun Aktif</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-subtle)', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+                <div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
+                    {currentUser.name}
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                    {currentUser.email}
+                  </div>
+                </div>
+                {onLogout && (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      if (window.confirm('Yakin ingin keluar dari akun Anda?')) {
+                        onClose();
+                        onLogout();
+                      }
+                    }}
+                    style={{ fontSize: '0.75rem', color: 'var(--expense-color)', borderColor: 'var(--expense-border)', padding: '6px 12px' }}
+                  >
+                    Keluar Akun
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
             <button className="btn btn-primary" onClick={onClose}>
               Done
             </button>

@@ -540,6 +540,8 @@ export default function App() {
         onClose={() => setIsDbStatusOpen(false)}
         dbStatus={stats.dbStatus}
         onResetSeed={handleResetSeed}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Mobile Bottom Dock (Exclusively for Mobile screens) */}
