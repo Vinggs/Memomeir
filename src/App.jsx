@@ -113,29 +113,10 @@ export default function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
-  // Sync active font preset to root DOM
-  const [fontFamily, setFontFamily] = useState(() => {
-    return localStorage.getItem('memomeir_font') || 'clash';
-  });
-
+  // Lock in Clash Display font
   useEffect(() => {
-    document.documentElement.setAttribute('data-font', fontFamily);
-    localStorage.setItem('memomeir_font', fontFamily);
-  }, [fontFamily]);
-
-  const cycleFont = () => {
-    const fonts = ['clash', 'cabinet', 'urbanist', 'jakarta'];
-    const nextIdx = (fonts.indexOf(fontFamily) + 1) % fonts.length;
-    const nextFont = fonts[nextIdx];
-    setFontFamily(nextFont);
-    const fontNames = {
-      clash: 'Clash Display (Bold Editorial Poster — Sesuai Gambar)',
-      cabinet: 'Cabinet Grotesk (Neo-Grotesque Bold)',
-      urbanist: 'Urbanist Bold (Sleek Geometric)',
-      jakarta: 'Plus Jakarta Sans Bold (Fintech Classic)'
-    };
-    showToast(`Gaya Font diubah: ${fontNames[nextFont]}`);
-  };
+    document.documentElement.setAttribute('data-font', 'clash');
+  }, []);
 
   // Verify auth session on initial load
   useEffect(() => {
@@ -396,8 +377,6 @@ export default function App() {
               theme={theme}
               toggleTheme={toggleTheme}
               currency={currency}
-              fontFamily={fontFamily}
-              cycleFont={cycleFont}
               onOpenSimulator={() => setIsSimulatorOpen(true)}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onOpenDocsModal={() => setIsDocsModalOpen(true)}
