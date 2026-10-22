@@ -157,20 +157,21 @@ export default function Navbar({
                   position: 'absolute',
                   top: 'calc(100% + 8px)',
                   right: 0,
-                  width: 250,
-                  background: 'var(--card-bg)',
-                  borderRadius: 14,
-                  border: '1px solid var(--border-color)',
-                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                  padding: '8px',
-                  zIndex: 1000
+                  width: 260,
+                  backgroundColor: 'var(--bg-card)',
+                  borderRadius: 16,
+                  border: '1px solid var(--border-subtle)',
+                  boxShadow: '0 20px 45px -10px rgba(0, 0, 0, 0.2), 0 10px 20px -5px rgba(0, 0, 0, 0.08)',
+                  padding: '10px',
+                  zIndex: 99999,
+                  backdropFilter: 'blur(16px)'
                 }}
               >
-                <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--border-color)', marginBottom: 6 }}>
-                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                <div style={{ padding: '8px 10px 10px', borderBottom: '1px solid var(--border-subtle)', marginBottom: 6 }}>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '0.92rem', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>
                     {currentUser.name}
                   </div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', wordBreak: 'break-all' }}>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', wordBreak: 'break-all', marginTop: 2 }}>
                     {currentUser.email}
                   </div>
                   {currentUser.phone ? (
@@ -178,8 +179,9 @@ export default function Navbar({
                       📱 +{currentUser.phone}
                     </div>
                   ) : null}
-                  <div style={{ fontSize: '0.68rem', color: '#10b981', fontWeight: 700, marginTop: 4 }}>
-                    ● Sesi Aktif & Terisolasi
+                  <div style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700, marginTop: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
+                    Sesi Aktif & Terisolasi
                   </div>
                 </div>
 
@@ -195,15 +197,17 @@ export default function Navbar({
                     display: 'flex',
                     alignItems: 'center',
                     gap: 8,
-                    padding: '8px 10px',
-                    borderRadius: 8,
+                    padding: '9px 12px',
+                    borderRadius: 10,
                     border: 'none',
-                    background: 'transparent',
-                    color: '#ef4444',
+                    background: 'var(--expense-bg)',
+                    color: 'var(--expense-color)',
                     fontSize: '0.82rem',
                     cursor: 'pointer',
-                    fontWeight: 600,
-                    textAlign: 'left'
+                    fontWeight: 700,
+                    fontFamily: 'var(--font-display)',
+                    textAlign: 'left',
+                    transition: 'opacity 0.15s ease'
                   }}
                 >
                   <LogOut size={14} />
@@ -249,7 +253,7 @@ export default function Navbar({
           <button
             className="btn-icon cartoon-icon-btn"
             onClick={cycleFont}
-            title={`Gaya Font: ${fontFamily === 'urbanist' ? 'Urbanist Bold' : fontFamily === 'jakarta' ? 'Plus Jakarta Bold' : fontFamily === 'sora' ? 'Sora Bold' : 'Outfit Bold'} (Klik untuk ganti font)`}
+            title={`Gaya Font: ${fontFamily === 'clash' ? 'Clash Display (Sesuai Gambar Referensi)' : fontFamily === 'cabinet' ? 'Cabinet Grotesk' : fontFamily === 'urbanist' ? 'Urbanist Bold' : 'Plus Jakarta Sans'} (Klik untuk ganti font)`}
             aria-label="Ganti Gaya Font"
           >
             <Type size={16} strokeWidth={2.4} />

@@ -115,7 +115,7 @@ export default function App() {
 
   // Sync active font preset to root DOM
   const [fontFamily, setFontFamily] = useState(() => {
-    return localStorage.getItem('memomeir_font') || 'urbanist';
+    return localStorage.getItem('memomeir_font') || 'clash';
   });
 
   useEffect(() => {
@@ -124,15 +124,15 @@ export default function App() {
   }, [fontFamily]);
 
   const cycleFont = () => {
-    const fonts = ['urbanist', 'jakarta', 'sora', 'outfit'];
+    const fonts = ['clash', 'cabinet', 'urbanist', 'jakarta'];
     const nextIdx = (fonts.indexOf(fontFamily) + 1) % fonts.length;
     const nextFont = fonts[nextIdx];
     setFontFamily(nextFont);
     const fontNames = {
+      clash: 'Clash Display (Bold Editorial Poster — Sesuai Gambar)',
+      cabinet: 'Cabinet Grotesk (Neo-Grotesque Bold)',
       urbanist: 'Urbanist Bold (Sleek Geometric)',
-      jakarta: 'Plus Jakarta Sans Bold (Fintech Classic)',
-      sora: 'Sora Bold (Futuristic Tech UI)',
-      outfit: 'Outfit Bold (Rounded Display)'
+      jakarta: 'Plus Jakarta Sans Bold (Fintech Classic)'
     };
     showToast(`Gaya Font diubah: ${fontNames[nextFont]}`);
   };
