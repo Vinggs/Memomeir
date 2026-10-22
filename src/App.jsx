@@ -113,6 +113,30 @@ export default function App() {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  // Sync active font preset to root DOM
+  const [fontFamily, setFontFamily] = useState(() => {
+    return localStorage.getItem('memomeir_font') || 'urbanist';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-font', fontFamily);
+    localStorage.setItem('memomeir_font', fontFamily);
+  }, [fontFamily]);
+
+  const cycleFont = () => {
+    const fonts = ['urbanist', 'jakarta', 'sora', 'outfit'];
+    const nextIdx = (fonts.indexOf(fontFamily) + 1) % fonts.length;
+    const nextFont = fonts[nextIdx];
+    setFontFamily(nextFont);
+    const fontNames = {
+      urbanist: 'Urbanist Bold (Sleek Geometric)',
+      jakarta: 'Plus Jakarta Sans Bold (Fintech Classic)',
+      sora: 'Sora Bold (Futuristic Tech UI)',
+      outfit: 'Outfit Bold (Rounded Display)'
+    };
+    showToast(`Gaya Font diubah: ${fontNames[nextFont]}`);
+  };
+
   // Verify auth session on initial load
   useEffect(() => {
     if (!authToken) return;
@@ -372,6 +396,8 @@ export default function App() {
               theme={theme}
               toggleTheme={toggleTheme}
               currency={currency}
+              fontFamily={fontFamily}
+              cycleFont={cycleFont}
               onOpenSimulator={() => setIsSimulatorOpen(true)}
               onOpenAddModal={() => setIsAddModalOpen(true)}
               onOpenDocsModal={() => setIsDocsModalOpen(true)}
@@ -404,7 +430,7 @@ export default function App() {
                     </div>
 
                     <p className="desktop-hero-subtitle">
-                      Pencatatan keuangan pribadi real-time. Setiap transaksi yang Anda catat lewat web atau bot WhatsApp langsung terisolasi di akun Anda.
+                      <strong>Pencatatan keuangan pribadi real-time.</strong> Setiap transaksi yang Anda catat lewat web atau bot WhatsApp langsung terisolasi di akun Anda.
                     </p>
                   </div>
 

@@ -14,7 +14,8 @@ import {
   UserPlus,
   LogIn,
   LogOut,
-  User
+  User,
+  Type
 } from 'lucide-react';
 
 export default function Navbar({
@@ -23,6 +24,8 @@ export default function Navbar({
   theme,
   toggleTheme,
   currency,
+  fontFamily = 'urbanist',
+  cycleFont,
   toggleCurrency,
   onOpenSimulator,
   onOpenAddModal,
@@ -240,6 +243,18 @@ export default function Navbar({
           <Plus size={16} strokeWidth={2.6} />
           <span>Catat Transaksi</span>
         </button>
+
+        {/* Font Style Switcher */}
+        {cycleFont && (
+          <button
+            className="btn-icon cartoon-icon-btn"
+            onClick={cycleFont}
+            title={`Gaya Font: ${fontFamily === 'urbanist' ? 'Urbanist Bold' : fontFamily === 'jakarta' ? 'Plus Jakarta Bold' : fontFamily === 'sora' ? 'Sora Bold' : 'Outfit Bold'} (Klik untuk ganti font)`}
+            aria-label="Ganti Gaya Font"
+          >
+            <Type size={16} strokeWidth={2.4} />
+          </button>
+        )}
 
         {/* Theme Switcher */}
         <button
