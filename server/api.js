@@ -174,9 +174,14 @@ async function handleWebhookPost(req, res) {
       });
     }
 
-    // Optional Secret Token verification if configured
+    // Optional Secret Token verification if configured for EXTERNAL bots
+    // (Bypass if request comes from an authenticated user session or web simulator)
     const configuredSecret = process.env.WHATSAPP_WEBHOOK_SECRET;
-    if (configuredSecret) {
+    const isSimulatorRequest = req.headers['x-simulator'] === 'true' || 
+                               req.headers['x-webhook-source'] === 'whatsapp-simulator' ||
+                               req.headers['x-webhook-source'] === 'whatsapp-ai-bot';
+
+    if (configuredSecret && !req.user && !isSimulatorRequest) {
       const authHeader = req.headers['authorization'] || req.headers['x-webhook-secret'] || req.query.secret;
       if (authHeader && authHeader !== configuredSecret && authHeader !== `Bearer ${configuredSecret}`) {
         return res.status(401).json({
@@ -205,11 +210,16 @@ async function handleWebhookPost(req, res) {
       });
     }
 
-    // Dynamic user matching (from user_id, phone, sender, or username)
-    let matchedUser = null;
-    const lookupKey = rawBody.user_id || rawBody.phone || rawBody.sender || payload.user_name;
-    if (lookupKey) {
-      matchedUser = await findUserByPhoneOrName(lookupKey);
+    // Dynamic user matching (from authenticated user, explicit user_id, phone, sender, or username)
+    let matchedUser = req.user || null;
+    if (!matchedUser && rawBody.user_id) {
+      matchedUser = await getUserById(rawBody.user_id);
+    }
+    if (!matchedUser) {
+      const lookupKey = rawBody.phone || rawBody.sender || payload.user_name;
+      if (lookupKey) {
+        matchedUser = await findUserByPhoneOrName(lookupKey);
+      }
     }
 
     // If no specific match or matched default seeded 'farrel', prefer primary registered user (e.g. Google user)
@@ -263,9 +273,9 @@ async function handleWebhookPost(req, res) {
   }
 }
 
-// Support both endpoint paths for convenience
-router.post('/webhook/transaction', handleWebhookPost);
-router.post('/webhook', handleWebhookPost);
+// Support both endpoint paths for convenience (with optional user authentication)
+router.post('/webhook/transaction', optionalAuth, handleWebhookPost);
+router.post('/webhook', optionalAuth, handleWebhookPost);
 
 // Diagnostic logs endpoint
 router.get('/webhook/logs', async (req, res) => {

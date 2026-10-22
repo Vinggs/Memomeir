@@ -521,6 +521,7 @@ export default function App() {
         isOpen={isSimulatorOpen}
         onClose={() => setIsSimulatorOpen(false)}
         onTransactionAdded={handleTransactionAdded}
+        currentUser={currentUser}
       />
 
       <AddTransactionModal

@@ -3436,3 +3436,49 @@ body {
   transform: translateY(-1px);
 }
 
+/* WhatsApp Simulator Animations & Styling */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes waBounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+
+.typing-dot {
+  display: inline-block;
+  animation: waBounce 1.2s infinite ease-in-out;
+}
+
+/* WhatsApp Simulator Dark Mode Refinements */
+[data-theme='dark'] .wa-simulator-modal {
+  background: #111B21 !important;
+  border-color: #222E35 !important;
+}
+
+[data-theme='dark'] .wa-simulator-modal > div:nth-child(2) {
+  background-color: #0B141A !important;
+  background-image: radial-gradient(#182229 1px, transparent 1px), radial-gradient(#182229 1px, #0B141A 1px) !important;
+}
+
+[data-theme='dark'] .wa-simulator-modal input {
+  color: #E9EDEF !important;
+}
+
+[data-theme='dark'] .wa-simulator-modal input::placeholder {
+  color: #8696A0 !important;
+}
+
+
